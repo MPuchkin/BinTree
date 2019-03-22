@@ -6,12 +6,14 @@ using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace TreeTest
 {		
-	TEST_CLASS(UnitTest1)
+	TEST_CLASS(BaseTests)
 	{
 	public:
-		
-		TEST_METHOD(TestMethod1)
+		TEST_METHOD(SizeTest)
 		{
+
+			Binary_Search_Tree<int> Tree = { 40,50,30,35,10,75,23,87,68 };
+			Assert::AreEqual(Tree.size(), Binary_Search_Tree<int>::size_type(9));
 			// TODO: Your test code here
 		}
 
