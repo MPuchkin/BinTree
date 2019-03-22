@@ -1,4 +1,4 @@
-#pragma once
+п»ї#pragma once
 #include <iostream>
 #include <cassert>
 #include <queue>
@@ -9,7 +9,7 @@
 template<typename T, class Compare = std::less<T>, class Allocator = std::allocator<T>>
 class Binary_Tree_Search
 {
-	//Могу писать
+	//РњРѕРіСѓ РїРёСЃР°С‚СЊ
 	Compare cmp;
 
 	class Tree_Node
@@ -26,13 +26,13 @@ class Binary_Tree_Search
 		
 	std::allocator<Tree_Node> alc;
 	
-	//  Указатель на корень дерева
+	//  РЈРєР°Р·Р°С‚РµР»СЊ РЅР° РєРѕСЂРµРЅСЊ РґРµСЂРµРІР°
 	Tree_Node* root, *dummy;
 
-	/// Создание фиктивной вершины
+	/// РЎРѕР·РґР°РЅРёРµ С„РёРєС‚РёРІРЅРѕР№ РІРµСЂС€РёРЅС‹
 	Tree_Node* make_dummy() {
 		
-		/// Всё неправильно!!!!
+		/// Р’СЃС‘ РЅРµРїСЂР°РІРёР»СЊРЅРѕ!!!!
 		
 		void* place = operator new(sizeof(Tree_Node<T>));
 		dummy = static_cast<Tree_Node *>(place);
@@ -44,10 +44,10 @@ class Binary_Tree_Search
 		return dummy;
 	}
 	
-	/// Удаление фиктивной вершины
+	/// РЈРґР°Р»РµРЅРёРµ С„РёРєС‚РёРІРЅРѕР№ РІРµСЂС€РёРЅС‹
 	void delete_dummy() {
 
-		/// Всё плохо!
+		/// Р’СЃС‘ РїР»РѕС…Рѕ!
 		operator delete(static_cast<Tree_Node *>(dummy), sizeof(Node));
 	}
 
@@ -653,7 +653,7 @@ public:
 		}
 	}
 
-	//3.9 //Если передавать по ссылкам,все хорошо. Конструктор копий принескольких деревьях ломается.
+	//3.9 //Р•СЃР»Рё РїРµСЂРµРґР°РІР°С‚СЊ РїРѕ СЃСЃС‹Р»РєР°Рј,РІСЃРµ С…РѕСЂРѕС€Рѕ. РљРѕРЅСЃС‚СЂСѓРєС‚РѕСЂ РєРѕРїРёР№ РїСЂРёРЅРµСЃРєРѕР»СЊРєРёС… РґРµСЂРµРІСЊСЏС… Р»РѕРјР°РµС‚СЃСЏ.
 	friend bool operator== (Binary_Tree_Search<T> tree_1, Binary_Tree_Search<T> tree_2)
 	{
 		for (auto i = tree_1.begin(), ii = tree_2.begin(); (i != tree_1.end()) && (ii != tree_2.end()); ++i, ++ii)
@@ -683,7 +683,7 @@ public:
 	}
 
 	void Destroy_Node(Tree_Node<T>* node)
-	{ //иногда тут вылезает stackoverflow
+	{ //РёРЅРѕРіРґР° С‚СѓС‚ РІС‹Р»РµР·Р°РµС‚ stackoverflow
 		if (node != nullptr && node != end_data)
 		{
 			Destroy_Node(node->left);
@@ -694,7 +694,7 @@ public:
 
 	~Binary_Tree_Search()
 	{
-		Destroy_Node(root); // рекурсивный деструктор
+		Destroy_Node(root); // СЂРµРєСѓСЂСЃРёРІРЅС‹Р№ РґРµСЃС‚СЂСѓРєС‚РѕСЂ
 		operator delete(static_cast<void *>(place), sizeof(Tree_Node<T>));
 
 
@@ -702,7 +702,7 @@ public:
 		/*auto p = root;
 		std::queue<Tree_Node<T>*> del;
 		del.push(p);
-		while (!del.empty()) //больше всего ошибка проявляется тут
+		while (!del.empty()) //Р±РѕР»СЊС€Рµ РІСЃРµРіРѕ РѕС€РёР±РєР° РїСЂРѕСЏРІР»СЏРµС‚СЃСЏ С‚СѓС‚
 		{
 			std::queue<Tree_Node<T>*> new_del;
 			while (!del.empty())
@@ -728,6 +728,6 @@ public:
 			}
 			del = new_del;
 		}
-		delete end_data; //ошибка иногда возникает тут*/
+		delete end_data; //РѕС€РёР±РєР° РёРЅРѕРіРґР° РІРѕР·РЅРёРєР°РµС‚ С‚СѓС‚*/
 	}
 };
