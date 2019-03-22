@@ -4,13 +4,15 @@
 #include <queue>
 #include <vector>
 #include <string>
-
+#include <memory_resource>
+#include <initializer_list>
+#include <functional>
 
 template<typename T, class Compare = std::less<T>, class Allocator = std::allocator<T>>
 class Binary_Tree_Search
 {
-	//Могу писать
-	Compare cmp;
+	//Объект для сравнения значений
+	Compare cmp = Compare();
 
 	class Tree_Node
 	{
@@ -19,74 +21,114 @@ class Binary_Tree_Search
 		Tree_Node* parent;
 		Tree_Node* left;
 		Tree_Node* right;
-		
+
 		T data;
-		Tree_Node(T value, Tree_Node* p, Tree_Node* l, Tree_Node* r) : parent(p), data(value), left(l), right(r) {}
+		Tree_Node(T value = T(), Tree_Node* p = nullptr, Tree_Node* l = nullptr, Tree_Node* r = nullptr) : parent(p), data(value), left(l), right(r) {}
 	};
-		
-	std::allocator<Tree_Node> alc;
-	
+
+	//  Жуть из стандартной библиотеки
+	using AllocType = typename std::allocator_traits<Allocator>::template rebind_alloc < Tree_Node >;
+	AllocType Alc;
+
+	void clone(Tree_Node * from, Tree_Node * other_dummy)
+	{
+		if (from == nullptr || from == other_dummy)
+			return;
+		add(from->data);
+		clone(from->right, other_dummy);
+		clone(from->left, other_dummy);
+	}
+
+public:
+	using key_type = T;
+	using key_compare = Compare;
+	//using value_compare = typename _Mybase::value_compare;
+	using value_type = typename T;
+	using allocator_type = typename AllocType;
+	using size_type = typename size_t;//Надо одинаково делать, иначе переполнение )
+	using difference_type = typename int64_t;
+	//using pointer = typename _Mybase::pointer;
+	//using const_pointer = typename _Mybase::const_pointer;
+	using reference = value_type & ;
+	using const_reference = const value_type&;
+	//using iterator = typename _Mybase::iterator;   //  Не нужно! Явно определили
+	//using const_iterator = typename _Mybase::const_iterator;
+	//using reverse_iterator = typename _Mybase::reverse_iterator;
+	//using const_reverse_iterator = typename _Mybase::const_reverse_iterator;
+
+	//Вижу, пофиксили))
+
+
+private:
 	//  Указатель на корень дерева
-	Tree_Node* root, *dummy;
+	Tree_Node* root;
+
+	// Указательно на фиктивную вершину
+	Tree_Node* dummy;
 
 	/// Создание фиктивной вершины
-	Tree_Node* make_dummy() {
-		
-		/// Всё неправильно!!!!
-		
-		void* place = operator new(sizeof(Tree_Node<T>));
-		dummy = static_cast<Tree_Node *>(place);
-		
+	Tree_Node* make_dummy()
+	{
+		/// Выделяем память без конструирования
+		dummy = Alc.allocate(1);
+
+		allocator_traits<AllocType>::construct(Alc, dummy->parent);
 		dummy->parent = nullptr;
+
+		allocator_traits<AllocType>::construct(Alc, dummy->left);
 		dummy->left = nullptr;
+
+		allocator_traits<AllocType>::construct(Alc, dummy->right);
 		dummy->right = nullptr;
 
 		return dummy;
 	}
-	
+
 	/// Удаление фиктивной вершины
 	void delete_dummy() {
-
-		/// Всё плохо!
-		operator delete(static_cast<Tree_Node *>(dummy), sizeof(Node));
+		allocator_traits<AllocType>::destroy(Alc, dummy->parent);
+		allocator_traits<AllocType>::destroy(Alc, dummy->left);
+		allocator_traits<AllocType>::destroy(Alc, dummy->right);
+		allocator_traits<AllocType>::deallocate(Alc, dummy, 1);
 	}
-
 
 	int64_t length = 0;
 public:
 
+	//  Класс итератора для дерева поиска
 	class iterator
 	{
-		Tree_Node<T1>* data;
+		//У меня вызывает сомнения типизация
+		friend class Binary_Tree_Search<T>;
+	protected:
+		Tree_Node* data;
 
-	public:
-		iterator(Tree_Node<T1>* d) : data(d)
+		explicit iterator(Tree_Node* d) : data(d)
 		{
-
 		}
-
-		Tree_Node<T1>* _data()
+		
+		Tree_Node* _data()//Что за Т1? Зачем?
 		{
 			return data;
 		}
 
-		Tree_Node<T1>* _parent()
+		Tree_Node* _parent()
 		{
 			return data->parent;
 		}
 
-		Tree_Node<T1>* _left()
+		Tree_Node* _left()
 		{
 
 			return data->left;
 		}
 
-		Tree_Node<T1>* _right()
+		Tree_Node* _right()
 		{
 			return data->right;
 		}
 
-		Tree_Node<T1>* _parent_right()
+		Tree_Node* _parent_right()
 		{
 			return data->parent->right;
 		}
@@ -96,31 +138,39 @@ public:
 			return data->data;
 		}
 
-		iterator<T1>& _To_parent()
+	public:
+
+		const T& operator*()
+		{
+			return data->data;
+		}
+
+		iterator & _To_parent()
 		{
 			data = data->parent;
 			return *this;
 		}
 
-		iterator<T1>& _Toleft()
+		iterator & _Toleft()
 		{
 
 			data = data->left;
 			return *this;
 		}
 
-		iterator<T1>& _Toright()
+		iterator & _Toright()
 		{
 			data = data->right;
 			return *this;
 		}
 
 		//3.6
-		void operator++()
+		iterator & operator++()
 		{
 			if (_right() != nullptr)
 			{
 				if (_right()->right == data)
+					//Немного глаза режут дополнительные блоки там, где их можно опустить(
 				{
 					_Toright();
 				}
@@ -141,10 +191,11 @@ public:
 				}
 				_To_parent();
 			}
+			return *this;
 		}
 
 		//3.7
-		void operator--()
+		iterator & operator--()
 		{
 			if (_left() != nullptr)
 			{
@@ -169,113 +220,97 @@ public:
 				}
 				_To_parent();
 			}
+			return *this;
 		}
 
-		void operator+(int64_t num)
-		{
-			for (size_t i = 0; i < num; i++)
-			{
-				data = data->right;
-			}
-		}
-
-		void operator-(int64_t num)
-		{
-			for (size_t i = 0; i < num; i++)
-			{
-				data = data->left;
-			}
-		}
-
-		friend bool operator != (iterator<T1> it_1, iterator<T1> it_2)
+		friend bool operator != (const iterator & it_1, const iterator & it_2)
 		{
 			return it_1.data != it_2.data;
 		}
 
-		friend bool operator == (iterator<T1> it_1, iterator<T1> it_2)
+		friend bool operator == (const iterator & it_1, const iterator & it_2)
 		{
 			return it_1.data == it_2.data;
 		}
-
-		~iterator()
-		{
-		}
-
-	private:
-
 	};
 
-	iterator<T> begin()
+	iterator begin() const
 	{
-		return iterator<T>(begin_data);
+		if(dummy->left == nullptr) return iterator(dummy);
+		return iterator(dummy->right);
 	}
 
-	iterator<T> end()
+	iterator end() const
 	{
-		return iterator<T>(end_data);
+		return iterator(dummy);
 	}
 
-	iterator<T> rbegin()
+	Binary_Tree_Search() : root(nullptr)
 	{
-		return iterator<T>(end_data->right);
+		make_dummy();
 	}
 
-	iterator<T> rend()
+	//инишиалайзер лист бы и дипозоном да, два варианта
+	Binary_Tree_Search(std::initializer_list<T>& il)//Его бы, наверно, диапазоном инициализировать, чтобы любой контейнер запихать можно было
 	{
-		return iterator<T>(end_data);
-	}
-
-	Binary_Tree_Search()
-	{
+		make_dummy();
 		root = nullptr;
-		begin_data = nullptr;
-	}
-
-	Binary_Tree_Search(std::vector<T>& v)
-	{
-		root = nullptr;
-		begin_data = nullptr;
-		for (auto x : v)
+		for (auto x : il)
 		{
 			this->Add_Leaf(x);
 		}
 	}
-
-	Binary_Tree_Search(Binary_Tree_Search<T>& tree)
+	template <class InputIterator>
+	Binary_Tree_Search(InputIterator first, InputIterator last)
 	{
+		make_dummy();
+		std::for_each(first, last, [this](T x){ Add_Leaf(x);});
+	}
+
+	Binary_Tree_Search(const Binary_Tree_Search & tree)
+	{
+		//Это я спёр из своего кода, оно работает. По крайней мере, у меня
 		root = nullptr;
-		begin_data = nullptr;
+		make_dummy();
+		clone(tree.root, tree.dummy);
+	}
+
+	const Binary_Tree_Search & operator=(const Binary_Tree_Search & tree)
+	{
+		//Тут надо бы очистить уже запиленное дерево, а то мы просто переприсвоили указатели, память потекла
+		if (this == &tree) return *this;
 		for (auto i = tree.begin(); i != tree.end(); ++i)
 		{
-			Add_Leaf(*i);
+			Add_Leaf(*i);   ///  Кошмар!!!
 		}
 	}
+
 	//===============================================================================================================
 	bool CheckTree() const
 	{
 		return checkNodes(root);
 	}
 
-	bool checkNodes(const Tree_Node<T>* current_node) const {
+	bool checkNodes(const Tree_Node* current_node) const {
 		if (current_node->parent != nullptr) {
 			assert(current_node->parent->left == current_node || current_node->parent->right == current_node);
-			assert(current_node->parent->left != current_node || current_node->data <= current_node->parent->data);
-			assert(current_node->parent->right != current_node || current_node->data >= current_node->parent->data);
+			assert(current_node->parent->left != current_node || !(cmp(current_node->parent->data, current_node->data)));
+			assert(current_node->parent->right != current_node || !cmp(current_node->data, current_node->parent->data));
 		}
-		if (current_node->left != nullptr && current_node->left != end_data) checkNodes(current_node->left);
-		if (current_node->right != nullptr && current_node->right != end_data) checkNodes(current_node->right);
+		if (current_node->left != nullptr && current_node->left != dummy) checkNodes(current_node->left);
+		if (current_node->right != nullptr && current_node->right != dummy) checkNodes(current_node->right);
 
 		return true;
 	}
 
-	void printNode(const Tree_Node<T>* current, int width = 0) const {
+	void printNode(const Tree_Node* current, int width = 0) const {
 		std::string spaces = "";
 		for (int i = 0; i < width; ++i) spaces += "  ";
 		if (current == nullptr) {
 			std::cout << spaces << "NIL\n";
 			return;
 		}
-		if (current == end_data) {
+		if (current == dummy) {
 			std::cout << spaces << "Dummy\n";
 			return;
 		}
@@ -294,67 +329,57 @@ public:
 
 
 	//3.1
-	void Add_Leaf(T data)
+	iterator Add_Leaf(const T & value)
 	{
 		if (root == nullptr)
 		{
-			root = new Tree_Node<T>(nullptr, data, nullptr, nullptr);
-			begin_data = root;
-			root->right = end_data;
+			//это в общем случае, здесь корень, конечно
+			//parent - most right; right - most left; left - root
+			root = new Tree_Node(nullptr, value, nullptr, nullptr);
+			root->right = dummy;
+			dummy->parent = root;
+			dummy->left = root;
+			dummy->right = root;
 		}
 		else
 		{
-			bool pure_left = true;
-			bool pure_right = true;
-
-			auto p = iterator<T>(root);
-
-			while (p._data() != nullptr)
-			{
-				if (*p > data) // left
-				{
-					if (p._left() == nullptr || p._left() == end_data)
-					{
-						p._data()->left = new Tree_Node<T>(p._data(), data, nullptr, nullptr);
-						++length;
-						if (pure_left)
-						{
-							begin_data = p._data()->left;
-							p._data()->left->left = end_data;
-							end_data->left = p._data()->left;
-						}
-						break;
-					}
-					else
-					{
-						pure_right = false;
-						p._Toleft();
-					}
-				}
-				else //right
-				{
-					if (p._right() == nullptr || p._right() == end_data)
-					{
-						p._data()->right = new Tree_Node<T>(p._data(), data, nullptr, nullptr);
-						++length;
-						if (pure_right)
-						{
-							p._data()->right->right = end_data;
-							end_data->right = p._data()->right;
-						}
-						break;
-					}
-					else
-					{
-						pure_left = false;
-						p._Toright();
-					}
-				}
-
+			iterator prev(nullptr);
+			iterator current = iterator(root);
+			while (current._data() != nullptr && current._data() != dummy) {
+				prev = current;
+				if (cmp(value, *current))
+					current._Toleft();
+				else
+					current._Toright();
 			}
+
+			//  Выделяем память под узел
+			auto tmp = new Tree_Node(prev._data(), value, nullptr, nullptr);
+
+			if (cmp(value, *prev)) 
+			{
+				//  налево
+				prev._data()->left = tmp;
+			}
+			else
+			{
+				// направо
+				prev._data()->right = tmp;
+			}
+			
+			//  Если новый узел - максимальный?
+			if (dummy->parent == prev) {
+				//  Если новый узел - максимальный 
+				dummy->parent = tmp;
+				tmp->right = dummy;
+			}
+			else
+				//  Если новый узел - минимальный
+				if (dummy->left == prev)
+					dummy->left = tmp;
 		}
 	}
-
+	/*
 	void Add_Leaf(Tree_Node<T>* data, iterator<T> it_begin)
 	{
 		if (root == nullptr)
@@ -424,8 +449,8 @@ public:
 		}
 		return false;
 	}
-
-
+	*/
+	/*
 	//3.3
 	iterator<T> Find_Min()
 	{
@@ -680,11 +705,11 @@ public:
 			it._To_parent();
 		}
 		return it;
-	}
+	}*/
 
-	void Destroy_Node(Tree_Node<T>* node)
-	{ //иногда тут вылезает stackoverflow
-		if (node != nullptr && node != end_data)
+	void Destroy_Node(Tree_Node* node)
+	{ 
+		if (node != nullptr && node != dummy)
 		{
 			Destroy_Node(node->left);
 			Destroy_Node(node->right);
@@ -695,39 +720,6 @@ public:
 	~Binary_Tree_Search()
 	{
 		Destroy_Node(root); // рекурсивный деструктор
-		operator delete(static_cast<void *>(place), sizeof(Tree_Node<T>));
-
-
-
-		/*auto p = root;
-		std::queue<Tree_Node<T>*> del;
-		del.push(p);
-		while (!del.empty()) //больше всего ошибка проявляется тут
-		{
-			std::queue<Tree_Node<T>*> new_del;
-			while (!del.empty())
-			{
-				auto x = del.front();
-				del.pop();
-
-				if (x->left != nullptr)
-				{
-					if (x->left != end_data)
-					{
-						new_del.push(x->left);
-					}
-				}
-				if (x->right != nullptr)
-				{
-					if (x->right != end_data)
-					{
-						new_del.push(x->right);
-					}
-				}
-				delete x;
-			}
-			del = new_del;
-		}
-		delete end_data; //ошибка иногда возникает тут*/
+		delete_dummy();
 	}
 };
