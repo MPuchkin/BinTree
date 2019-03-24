@@ -8,11 +8,11 @@
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
 namespace TreeTest
-{		
+{
 	TEST_CLASS(BaseTests)
 	{
 	public:
-		
+
 		TEST_METHOD(TreeSizeTest)
 		{
 			//  Тестирование размера дерева при разных сценариях использования
@@ -21,7 +21,7 @@ namespace TreeTest
 			Binary_Search_Tree<int> Tree = { 40,50,30,35,10,75,23,87,68 };
 			Assert::AreEqual(Tree.size(), Binary_Search_Tree<int>::size_type(9), L"Неверно указывается размер дерева!");
 			Binary_Search_Tree<int> Tree2(Tree);
-			Assert::AreEqual(Tree.size(),Tree2.size(), L"Неверно указывается размер после копирования!");
+			Assert::AreEqual(Tree.size(), Tree2.size(), L"Неверно указывается размер после копирования!");
 			Logger::WriteMessage("Всё чудесно!");
 		}
 
@@ -69,11 +69,11 @@ namespace TreeTest
 
 			Mycont v1(carr, carr + 3);
 			Assert::IsTrue(v1.size() == 3 && *v1.begin() == 'a', L"Неверно создаётся set символов");
-			
+
 			Mycont v2(carr, carr + 3, pred);
 			Assert::IsTrue(v2.size() == 3 && *v2.begin() == 'a', L"Неверно создаётся set символов");
 
-			Mycont v3(carr, carr + 3, pred,al);
+			Mycont v3(carr, carr + 3, pred, al);
 			Assert::IsTrue(v3.size() == 3 && *v3.begin() == 'a', L"Неверно создаётся set символов");
 
 			const Mycont v4(carr, carr + 3);
@@ -96,25 +96,9 @@ namespace TreeTest
 			v0 = v4;
 
 			Mycont::iterator p_it(v1.begin());
-
-			char ch('a'), carr[] = "abc", carr2[] = "def";
-			Mycont v0;
-			Myal al = v0.get_allocator();
-			Mypred pred;
-			Mycont v0a(pred);
-
-			Mycont v1(carr, carr + 3);
-			Assert::IsTrue(v1.size() == 3 && *v1.begin() == 'a', L"Неверно создаётся set символов");
-
-			Mycont v2(carr, carr + 3, pred);
-			Assert::IsTrue(v2.size() == 3 && *v2.begin() == 'a', L"Неверно создаётся set символов");
-
-			Mycont v3(carr, carr + 3, pred, al);
-			Assert::IsTrue(v3.size() == 3 && *v3.begin() == 'a', L"Неверно создаётся set символов");
-
-			const Mycont v4(carr, carr + 3);
-			v0 = v4;
-			Assert::IsTrue(v1.size() == 3 && *v1.begin() == 'a', L"Неверно работает оператор присваивания для set");
+			Mycont::const_iterator p_cit(v4.begin());
+			Mycont::reverse_iterator p_rit(v1.begin());
+			Mycont::const_reverse_iterator p_crit(v4.rbegin());
 		}
 
 		TEST_METHOD(TreesEqualityTest)
