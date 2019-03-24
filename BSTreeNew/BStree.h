@@ -34,7 +34,7 @@ class Binary_Search_Tree
 	{
 		if (from == nullptr || from == other_dummy)
 			return;
-		add(from->data);
+		insert(from->data);
 		clone(from->right, other_dummy);
 		clone(from->left, other_dummy);
 	}
