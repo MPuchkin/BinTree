@@ -42,7 +42,7 @@ class Binary_Search_Tree
 public:
 	using key_type = T;
 	using key_compare = Compare;
-	//using value_compare = typename _Mybase::value_compare;
+	using value_compare = Compare;
 	using value_type = typename T;
 	using allocator_type = typename AllocType;
 	using size_type = typename size_t;//Надо одинаково делать, иначе переполнение )
