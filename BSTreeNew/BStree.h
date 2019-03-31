@@ -1,9 +1,13 @@
 ﻿#pragma once
 #include <iostream>
 #include <cassert>
+//  Упрощённое описание шаблона двоичного дерева поиска – некоторые элементы (определения типов, проверки и проч.) пропущены
+//  Может быть использовано для реализации сбалансированных деревьев поиска (RBT, AVL) и структур данных на их основе
+
 #include <queue>
 #include <vector>
 #include <string>
+#include <memory>
 #include <memory_resource>
 #include <initializer_list>
 #include <functional>
@@ -11,25 +15,42 @@
 template<typename T, class Compare = std::less<T>, class Allocator = std::allocator<T>>
 class Binary_Search_Tree
 {
-	//Объект для сравнения значений
+	//  Объект для сравнения ключей. Должен удовлетворять требованию строго слабого порядка, т.е. иметь свойства:
+	//    1. Для любого x => cmp(x,x) == false (антирефлексивность)
+	//    2. Если cmp(x,y) == true  =>  cmp(y,x) == false (асимметричность)
+	//    3. Если cmp(x,y) == cmp(y,z) == true  =>  cmp(x,z) == true  (транзитивность)
+	//    4. Если cmp(x,y) == cmp(y,z) == false  =>  cmp(x,z) == false  (транзитивность несравнимости)
+	//  Этим свойством обладает, к примеру, оператор <. Если нужно использовать оператор <= , который не обладает
+	//     нужными свойствами, то можно использовать его отрицание и рассматривать дерево как инвертированное от требуемого.
 	Compare cmp = Compare();
 
+	//  Узел бинарного дерева, хранит ключ и три указателя
 	class Tree_Node
 	{
-	public:
+	public:  //  Все поля открыты (public), т.к. само определение узла спрятано в private-части дерева
 
 		Tree_Node* parent;
 		Tree_Node* left;
 		Tree_Node* right;
-
+		//  Хранимый в узле ключ
 		T data;
 		Tree_Node(T value = T(), Tree_Node* p = nullptr, Tree_Node* l = nullptr, Tree_Node* r = nullptr) : parent(p), data(value), left(l), right(r) {}
 	};
 
-	//  Жуть из стандартной библиотеки
-	using AllocType = typename std::allocator_traits<Allocator>::template rebind_alloc < Tree_Node >;
-	AllocType Alc;
+	//  Стандартные контейнеры позволяют указать пользовательский аллокатор, который используется для
+	//  выделения и освобождения памяти под узлы (реализует замену операций new/delete). К сожалению, есть 
+	//  типичная проблема – при создании дерева с ключами типа T параметром шаблона традиционно указывается
+	//  std::allocator<T>, который умеет выделять память под T, а нам нужен аллокатор для выделения/освобождения
+	//  памяти под Tree_Node, т.е. std::allocator<Tree_Node>. Поэтому параметр шаблона аллокатора нужно изменить
+	//  с T на Tree_Node, что и делается ниже. А вообще это одна из самых малополезных возможностей - обычно мы
+	//  пользовательские аллокаторы не пишем, это редкость.
 
+	//  Определяем тип аллокатора для Tree_Node (Allocator нам не подходит)
+	using AllocType = typename std::allocator_traits<Allocator>::template rebind_alloc < Tree_Node >;
+	//  Аллокатор для выделения памяти под объекты Tree_Node
+	AllocType Alc;
+	
+	//  Рекурсивное клонирование дерева (не включая фиктивную вершину)
 	void clone(Tree_Node * from, Tree_Node * other_dummy)
 	{
 		if (from == nullptr || from == other_dummy)
@@ -45,19 +66,16 @@ public:
 	using value_compare = Compare;
 	using value_type = typename T;
 	using allocator_type = typename AllocType;
-	using size_type = typename size_t;//Надо одинаково делать, иначе переполнение )
+	using size_type = typename size_t;
 	using difference_type = typename int64_t;
-	//using pointer = typename _Mybase::pointer;
+	//using pointer = typename T *;
 	//using const_pointer = typename _Mybase::const_pointer;
 	using reference = value_type & ;
-	using const_reference = const value_type&;
+	using const_reference = const value_type &;
 	//using iterator = typename _Mybase::iterator;   //  Не нужно! Явно определили
 	//using const_iterator = typename _Mybase::const_iterator;
 	//using reverse_iterator = typename _Mybase::reverse_iterator;
 	//using const_reverse_iterator = typename _Mybase::const_reverse_iterator;
-
-	//Вижу, поввиксили))
-
 
 private:
 	//  Указатель на корень дерева
@@ -66,10 +84,10 @@ private:
 	// Указательно на фиктивную вершину
 	Tree_Node* dummy;
 
-	/// Создание фиктивной вершины
+	// Создание фиктивной вершины
 	Tree_Node* make_dummy()
 	{
-		/// Выделяем память без конструирования
+		// Выделяем память без конструирования
 		dummy = Alc.allocate(1);
 
 		std::allocator_traits<AllocType>::construct(Alc, &(dummy->parent));
@@ -84,7 +102,7 @@ private:
 		return dummy;
 	}
 
-	/// Удаление фиктивной вершины
+	// Удаление фиктивной вершины
 	void delete_dummy() {
 		std::allocator_traits<AllocType>::destroy(Alc, dummy->parent);
 		std::allocator_traits<AllocType>::destroy(Alc, dummy->left);
@@ -709,6 +727,7 @@ public:
 		return it;
 	}*/
 
+	//  Рекурсивное удаление узлов дерева, не включая фиктивную вершину
 	void Destroy_Node(Tree_Node* node)
 	{ 
 		if (node != nullptr && node != dummy)

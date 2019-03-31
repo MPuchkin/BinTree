@@ -45,8 +45,6 @@ namespace TreeTest
 			Binary_Search_Tree<int> Tree2(Tree);
 			Assert::AreEqual(Tree.size(), Tree2.size(), L"Неверно указывается размер после копирования!");
 		}
-
-
 	};
 	
 	TEST_CLASS(SetTests)
