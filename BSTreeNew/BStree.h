@@ -1,9 +1,9 @@
 ﻿#pragma once
-#include <iostream>
-#include <cassert>
+
 //  Упрощённое описание шаблона двоичного дерева поиска – некоторые элементы (определения типов, проверки и проч.) пропущены
 //  Может быть использовано для реализации сбалансированных деревьев поиска (RBT, AVL) и структур данных на их основе
-
+#include <iostream>
+#include <cassert>
 #include <queue>
 #include <vector>
 #include <string>
@@ -28,7 +28,6 @@ class Binary_Search_Tree
 	class Tree_Node
 	{
 	public:  //  Все поля открыты (public), т.к. само определение узла спрятано в private-части дерева
-
 		Tree_Node* parent;
 		Tree_Node* left;
 		Tree_Node* right;
@@ -51,6 +50,7 @@ class Binary_Search_Tree
 	AllocType Alc;
 	
 	//  Рекурсивное клонирование дерева (не включая фиктивную вершину)
+	//  Идея так себе - вроде пользуемся стандартной вставкой, хотя явное клонирование вершин было бы лучше
 	void clone(Tree_Node * from, Tree_Node * other_dummy)
 	{
 		if (from == nullptr || from == other_dummy)
@@ -73,7 +73,8 @@ public:
 	using reference = value_type & ;
 	using const_reference = const value_type &;
 	//using iterator = typename _Mybase::iterator;   //  Не нужно! Явно определили
-	//using const_iterator = typename _Mybase::const_iterator;
+	class iterator;   //  Предварительное объявление класса iterator, т.к. он определён ниже
+	using const_iterator = iterator;
 	//using reverse_iterator = typename _Mybase::reverse_iterator;
 	//using const_reverse_iterator = typename _Mybase::const_reverse_iterator;
 
@@ -84,12 +85,13 @@ private:
 	// Указательно на фиктивную вершину
 	Tree_Node* dummy;
 
-	// Создание фиктивной вершины
-	Tree_Node* make_dummy()
+	// Создание фиктивной вершины - используется только при создании дерева
+	inline Tree_Node* make_dummy()
 	{
-		// Выделяем память без конструирования
+		// Выделяем память по размеру узла без конструирования
 		dummy = Alc.allocate(1);
-
+		
+		//  Все поля, являющиеся указателями на узлы (left, right, parent) инициализируем и обнуляем
 		std::allocator_traits<AllocType>::construct(Alc, &(dummy->parent));
 		dummy->parent = nullptr;
 
@@ -98,12 +100,13 @@ private:
 
 		std::allocator_traits<AllocType>::construct(Alc, &(dummy->right));
 		dummy->right = nullptr;
-
+		
+		//  Возвращаем указатель на созданную вершину
 		return dummy;
 	}
 
 	// Удаление фиктивной вершины
-	void delete_dummy() {
+	inline void delete_dummy() {
 		std::allocator_traits<AllocType>::destroy(Alc, dummy->parent);
 		std::allocator_traits<AllocType>::destroy(Alc, dummy->left);
 		std::allocator_traits<AllocType>::destroy(Alc, dummy->right);
@@ -116,49 +119,48 @@ public:
 	//  Класс итератора для дерева поиска
 	class iterator
 	{
-		//У меня вызывает сомнения типизация
-		friend class Binary_Search_Tree<T>;
+		friend class Binary_Search_Tree;
 	protected:
+		//  Указатель на узел дерева
 		Tree_Node* data;
 
-		explicit iterator(Tree_Node* d) : data(d)
-		{
-		}
+		explicit iterator(Tree_Node* d) : data(d) {	}
 		
-		Tree_Node* _data()//Что за Т1? Зачем?
+		//  Указатель на узел дерева
+		inline Tree_Node* _data()
 		{
 			return data;
 		}
 
-		Tree_Node* _parent()
+		inline Tree_Node* _parent()
 		{
 			return data->parent;
 		}
 
-		Tree_Node* _left()
+		inline Tree_Node* _left()
 		{
 
 			return data->left;
 		}
 
-		Tree_Node* _right()
+		inline Tree_Node* _right()
 		{
 			return data->right;
 		}
 
-		Tree_Node* _parent_right()
+		inline Tree_Node* _parent_right()
 		{
 			return data->parent->right;
 		}
 
-		T& operator*()
+		inline T& operator*()
 		{
 			return data->data;
 		}
 
 	public:
 
-		const T& operator*() const
+		inline const T& operator*() const
 		{
 			return data->data;
 		}
@@ -171,7 +173,6 @@ public:
 
 		iterator & _Toleft()
 		{
-
 			data = data->left;
 			return *this;
 		}
@@ -188,25 +189,18 @@ public:
 			if (_right() != nullptr)
 			{
 				if (_right()->right == data)
-					//Немного глаза режут дополнительные блоки там, где их можно опустить(
-				{
 					_Toright();
-				}
 				else
 				{
 					_Toright();
 					while (_left() != nullptr)
-					{
 						_Toleft();
-					}
 				}
 			}
 			else
 			{
 				while (_parent()->right == data)
-				{
 					_To_parent();
-				}
 				_To_parent();
 			}
 			return *this;

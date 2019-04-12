@@ -49,7 +49,7 @@ namespace TreeTest
 	
 	TEST_CLASS(SetTests)
 	{
-		///  Тесты стандартного контейнера std::set, из книги "The C++ Standard template library" Плаугера, Степанова и др.
+		//  Тесты стандартного контейнера std::set, из книги "The C++ Standard template library" Плаугера, Степанова и др.
 	public:
 
 		using Myal = std::allocator<char>;
