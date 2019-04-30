@@ -1,7 +1,8 @@
-﻿#include "stdafx.h"
-#include "CppUnitTest.h"
+﻿#include "CppUnitTest.h"
 #include "..\BSTreeNew\BStree.h"
-
+#include <set>
+#include <functional>
+#include <memory_resource>
 
   //Тестирование заголовка <set>, основанное на книге «The C++ Standard Template Library» P.J. Plauger, Alexander A. Stepanov,
   //    Meng Lee, David R. Musser. Немного модифицировано, и разбито на отдельные тесты. 
