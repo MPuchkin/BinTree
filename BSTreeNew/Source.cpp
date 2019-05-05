@@ -1,15 +1,26 @@
 #include <iostream>
 #include <set>
-
 #include "BStree.h"
 
 using namespace std;
 
 int main() {
-	set<int> s;
-	s.insert(10);
 	Binary_Search_Tree<int> Tree = { 40,50,30,35,10,75,23,87,68 };
 	Tree.PrintTree();
+	cout << "=========================\n";
+	for (auto it = Tree.begin(); it != Tree.end(); ++it)
+		cout << *it << " ";
+	cout << endl;
+	cout << "First : " << *Tree.begin() << endl;
+	cout << " Last : " << *(--Tree.end()) << endl;
+	Tree.erase(10);
+	Tree.PrintTree();
+	cout << "First : " << *Tree.begin() << endl;
+	cout << " Last : " << *(--Tree.end()) << endl;
+	Tree.erase(40);
+	Tree.PrintTree();
+	cout << "First : " << *Tree.begin() << endl;
+	cout << " Last : " << *(--Tree.end()) << endl;
 	#ifdef _WIN32
 		system("pause");
 	#endif //_WIN32

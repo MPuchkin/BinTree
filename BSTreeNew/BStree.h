@@ -2,11 +2,17 @@
 
 //  Упрощённое описание шаблона двоичного дерева поиска – некоторые элементы (определения типов, проверки и проч.) пропущены
 //  Может быть использовано для реализации сбалансированных деревьев поиска (RBT, AVL) и структур данных на их основе
+
+//  Проект: https://github.com/MPuchkin/BinTree
+
+//  Авторы: Бостан Игорь, Дуюнов Сергей, Иванченко Вячеслав
+
 #include <iostream>
 #include <cassert>
 #include <queue>
 #include <vector>
 #include <string>
+#include <iterator>
 #include <memory>
 #include <memory_resource>
 #include <initializer_list>
@@ -24,38 +30,42 @@ class Binary_Search_Tree
 	//     нужными свойствами, то можно использовать его отрицание и рассматривать дерево как инвертированное от требуемого.
 	Compare cmp = Compare();
 
-	//  Узел бинарного дерева, хранит ключ и три указателя
-	class Tree_Node
+	//  Узел бинарного дерева, хранит ключ, три указателя и признак nil для обозначения фиктивной вершины
+	class Node
 	{
 	public:  //  Все поля открыты (public), т.к. само определение узла спрятано в private-части дерева
-		Tree_Node* parent;
-		Tree_Node* left;
-		Tree_Node* right;
+		Node* parent;
+		Node* left;
+		Node* right;
 		//  Хранимый в узле ключ
 		T data;
-		Tree_Node(T value = T(), Tree_Node* p = nullptr, Tree_Node* l = nullptr, Tree_Node* r = nullptr) : parent(p), data(value), left(l), right(r) {}
+		//  true только для фиктивной вершины
+		bool isNil;
+		Node(T value = T(), Node* p = nullptr, Node* l = nullptr, Node* r = nullptr) : parent(p), data(value), left(l), right(r) {}
 	};
 
 	//  Стандартные контейнеры позволяют указать пользовательский аллокатор, который используется для
 	//  выделения и освобождения памяти под узлы (реализует замену операций new/delete). К сожалению, есть 
 	//  типичная проблема – при создании дерева с ключами типа T параметром шаблона традиционно указывается
 	//  std::allocator<T>, который умеет выделять память под T, а нам нужен аллокатор для выделения/освобождения
-	//  памяти под Tree_Node, т.е. std::allocator<Tree_Node>. Поэтому параметр шаблона аллокатора нужно изменить
-	//  с T на Tree_Node, что и делается ниже. А вообще это одна из самых малополезных возможностей - обычно мы
+	//  памяти под Node, т.е. std::allocator<Node>. Поэтому параметр шаблона аллокатора нужно изменить
+	//  с T на Node, что и делается ниже. А вообще это одна из самых малополезных возможностей - обычно мы
 	//  пользовательские аллокаторы не пишем, это редкость.
 
-	//  Определяем тип аллокатора для Tree_Node (Allocator нам не подходит)
-	using AllocType = typename std::allocator_traits<Allocator>::template rebind_alloc < Tree_Node >;
-	//  Аллокатор для выделения памяти под объекты Tree_Node
+	//  Определяем тип аллокатора для Node (Allocator нам не подходит)
+	using AllocType = typename std::allocator_traits<Allocator>::template rebind_alloc < Node >;
+	//  Аллокатор для выделения памяти под объекты Node
 	AllocType Alc;
 	
 	//  Рекурсивное клонирование дерева (не включая фиктивную вершину)
 	//  Идея так себе - вроде пользуемся стандартной вставкой, хотя явное клонирование вершин было бы лучше
-	void clone(Tree_Node * from, Tree_Node * other_dummy)
+	void clone(Node * from, Node * other_dummy)
 	{
-		if (from == nullptr || from == other_dummy)
+		if (from == other_dummy)
 			return;
-		insert(from->data);
+		//	клонирование через insert? оно же бедет переразвешиваться
+		// Это ещё и рекурсивный проход в ширину, выраждает дево в список
+		insert(from->data);	
 		clone(from->right, other_dummy);
 		clone(from->left, other_dummy);
 	}
@@ -67,8 +77,8 @@ public:
 	using value_type = typename T;
 	using allocator_type = typename AllocType;
 	using size_type = typename size_t;
-	using difference_type = typename int64_t;
-	//using pointer = typename T *;
+	using difference_type = typename size_t;
+	using pointer = typename T *;
 	//using const_pointer = typename _Mybase::const_pointer;
 	using reference = value_type & ;
 	using const_reference = const value_type &;
@@ -76,163 +86,236 @@ public:
 	class iterator;   //  Предварительное объявление класса iterator, т.к. он определён ниже
 	using const_iterator = iterator;
 	//using reverse_iterator = typename _Mybase::reverse_iterator;
-	//using const_reverse_iterator = typename _Mybase::const_reverse_iterator;
+	//using const_reverse_iterator = reverse_iterator;
+	using reverse_iterator = std::reverse_iterator<iterator>;
+	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 private:
-	//  Указатель на корень дерева
-	Tree_Node* root;
-
 	// Указательно на фиктивную вершину
-	Tree_Node* dummy;
+	Node* dummy;
+
+	//  Количесто элементов в дереве
+	size_type tree_size = 0;
 
 	// Создание фиктивной вершины - используется только при создании дерева
-	inline Tree_Node* make_dummy()
+	inline Node* make_dummy()
 	{
 		// Выделяем память по размеру узла без конструирования
 		dummy = Alc.allocate(1);
 		
 		//  Все поля, являющиеся указателями на узлы (left, right, parent) инициализируем и обнуляем
 		std::allocator_traits<AllocType>::construct(Alc, &(dummy->parent));
-		dummy->parent = nullptr;
+		dummy->parent = dummy;
 
 		std::allocator_traits<AllocType>::construct(Alc, &(dummy->left));
-		dummy->left = nullptr;
+		dummy->left = dummy;
 
 		std::allocator_traits<AllocType>::construct(Alc, &(dummy->right));
-		dummy->right = nullptr;
+		dummy->right = dummy;
 		
+		dummy->isNil = true;
+
 		//  Возвращаем указатель на созданную вершину
 		return dummy;
 	}
 
-	// Удаление фиктивной вершины
-	inline void delete_dummy() {
-		std::allocator_traits<AllocType>::destroy(Alc, dummy->parent);
-		std::allocator_traits<AllocType>::destroy(Alc, dummy->left);
-		std::allocator_traits<AllocType>::destroy(Alc, dummy->right);
-		std::allocator_traits<AllocType>::deallocate(Alc, dummy, 1);
+	// Создание узла дерева 
+	inline Node* make_node(const value_type & elem, Node * parent, Node* left, Node* right)
+	{
+		// Создаём точно так же, как и фиктивную вершину, только для поля данных нужно вызвать конструктор
+		Node * new_node = Alc.allocate(1);
+		
+		//  Все поля, являющиеся указателями на узлы (left, right, parent) инициализируем и обнуляем
+		std::allocator_traits<AllocType>::construct(Alc, &(new_node->parent));
+		new_node->parent = parent;
+
+		std::allocator_traits<AllocType>::construct(Alc, &(new_node->left));
+		new_node->left = left;
+
+		std::allocator_traits<AllocType>::construct(Alc, &(new_node->right));
+		new_node->right = right;
+
+		//  Конструируем поле данных
+		std::allocator_traits<AllocType>::construct(Alc, &(new_node->data));
+		new_node->data = elem;
+		
+		new_node->isNil = false;
+
+
+		//  Возвращаем указатель на созданную вершину
+		return new_node;
 	}
 
-	size_type length = 0;
-public:
+	// Удаление фиктивной вершины
+	inline void delete_dummy(Node* node) {
+		std::allocator_traits<AllocType>::destroy(Alc, &(node->parent));
+		std::allocator_traits<AllocType>::destroy(Alc, &(node->left));
+		std::allocator_traits<AllocType>::destroy(Alc, &(node->right));
+		std::allocator_traits<AllocType>::deallocate(Alc, node, 1);
+	}
+	
+	// Удаление вершины дерева
+	inline void delete_node(Node * node) {
+		//  Тут удаляем поле данных (вызывается деструктор), а остальное удаляем так же, как и фиктивную
+		std::allocator_traits<AllocType>::destroy(Alc, &(node->data));
+		delete_dummy(node);
+	}
 
+public:
+	//  Предварительное объявление класса обратного итератора, чтобы некоторые операции можно было запретить уже
+	//  при реализации прямого итератора
+	class reverse_iterator;
+	
 	//  Класс итератора для дерева поиска
-	class iterator
+	class iterator 
 	{
 		friend class Binary_Search_Tree;
 	protected:
 		//  Указатель на узел дерева
-		Tree_Node* data;
+		Node* data;
 
-		explicit iterator(Tree_Node* d) : data(d) {	}
+		explicit iterator(Node* d) : data(d) {	}
 		
 		//  Указатель на узел дерева
-		inline Tree_Node* _data()
+		inline Node* &_data()
 		{
 			return data;
 		}
 
-		inline Tree_Node* _parent()
-		{
-			return data->parent;
+		//  Указывает ли итератор на фиктивную вершину?
+		inline bool isNil() const {
+			return data == nullptr || data->isNil;
 		}
 
-		inline Tree_Node* _left()
-		{
-
-			return data->left;
+		//  Ненулевая вершина
+		inline bool notNil() const {
+			return !isNil();
 		}
 
-		inline Tree_Node* _right()
-		{
-			return data->right;
+		inline void setParent(const iterator& newParent) {
+			data->parent = newParent.data;
 		}
 
-		inline Tree_Node* _parent_right()
-		{
-			return data->parent->right;
+		inline void setLeft(const iterator& newLeft) {
+			data->left = newLeft.data;
 		}
 
-		inline T& operator*()
-		{
-			return data->data;
+		inline void setRight(const iterator& newRight) {
+			data->right = newRight.data;
 		}
-
+		//  Родительский узел дерева
+		inline iterator Parent() const noexcept
+		{
+			return iterator(data->parent);
+		}
+		//  Левый дочерний узел (если отсутствует, то фиктивная вершина)
+		inline iterator Left() const noexcept
+		{
+			return iterator(data->left);
+		}
+		//  Правый дочерний узел (если отсутствует, то фиктивная вершина)
+		inline iterator Right() const noexcept
+		{
+			return iterator(data->right);
+		}
+		//  Является ли узел дерева левым у своего родителя
+		inline bool IsLeft() const noexcept
+		{
+			return Parent().Left() == *this;
+		}
+		//  Является ли узел дерева правым у своего родителя
+		inline bool IsRight() const noexcept
+		{
+			return Parent().Right() == *this;
+		}
+		//  Поиск «самого левого» элемента
+		iterator GetMin() {
+			iterator tmp(*this);
+			while (tmp.Left().notNil())
+				tmp = tmp.Left();
+			return tmp;
+		}
+		//  Поиск «самого правого» элемента
+		iterator GetMax() {
+			iterator tmp(*this);
+			while (tmp.Right().notNil())
+				tmp = tmp.Right();
+			return tmp;
+		}
 	public:
+		//  Определяем стандартные типы в соответствии с требованиями стандарта к двунаправленным итераторам
 
+		using iterator_category = std::bidirectional_iterator_tag;
+		using value_type = Binary_Search_Tree::value_type; // crap
+		using difference_type = Binary_Search_Tree::difference_type;
+		using pointer = Binary_Search_Tree::pointer;
+		using reference = Binary_Search_Tree::reference;
+
+		//  Значение в узле, на который указывает итератор
 		inline const T& operator*() const
 		{
 			return data->data;
 		}
 
-		iterator & _To_parent()
-		{
-			data = data->parent;
-			return *this;
-		}
-
-		iterator & _Toleft()
-		{
-			data = data->left;
-			return *this;
-		}
-
-		iterator & _Toright()
-		{
-			data = data->right;
-			return *this;
-		}
-
-		//3.6
+		//  Преинкремент - следующий элемент множества
 		iterator & operator++()
 		{
-			if (_right() != nullptr)
-			{
-				if (_right()->right == data)
-					_Toright();
-				else
-				{
-					_Toright();
-					while (_left() != nullptr)
-						_Toleft();
-				}
+			//  Если фиктивная вершина - надо вернуться на самую левую
+			if (isNil()) {
+				data = data->left;
+				return *this;
 			}
-			else
+			if (Right().notNil())  //  есть правое поддерево
 			{
-				while (_parent()->right == data)
-					_To_parent();
-				_To_parent();
+				_data() = Right()._data();
+				while (Left().notNil())
+					_data() = Left()._data();
+				return *this;
+			}
+			//  Нет правого поддерева, поэтому идём по родителям до того, как шагнём направо
+			iterator prev = *this;
+			_data() = Parent()._data();
+			while (notNil() && Right() == prev) {
+				prev = *this;
+				_data() = Parent()._data();
+			}
+
+			return *this;
+		}
+		//  Предекремент - переход на предыдущий элемент множества
+		iterator & operator--()
+		{
+			if (isNil()) {
+				data = data->right;
+				return *this;
+			}
+			if (Left().notNil())  //  есть левое поддерево
+			{
+				_data() = Left()._data();
+				while (notNil())
+					_data() = Right()._data();
+				return *this;
+			}
+			//  Нет левого поддерева - идём по родителям до тех пор, пока не шагнём налево
+			iterator prev = *this;
+			_data() = Parent()._data();
+			while (notNil() && Left() == prev) {
+				prev = *this;
+				_data() = Parent()._data();
 			}
 			return *this;
 		}
-
-		//3.7
-		iterator & operator--()
-		{
-			if (_left() != nullptr)
-			{
-				if (_left()->left == data)
-				{
-					_Toleft();
-				}
-				else
-				{
-					_Toleft();
-					while (_right() != nullptr)
-					{
-						_Toright();
-					}
-				}
-			}
-			else
-			{
-				while (_parent()->left == data)
-				{
-					_To_parent();
-				}
-				_To_parent();
-			}
-			return *this;
+		//  Постинкремент
+		iterator operator++(int) {
+			iterator it(*this);
+			this->operator++();
+			return it;
+		}
+		//  Постдекремент
+		iterator operator--(int) {
+			iterator it(*this);
+			this->operator--();
+			return it;
 		}
 
 		friend bool operator != (const iterator & it_1, const iterator & it_2)
@@ -244,66 +327,145 @@ public:
 		{
 			return it_1.data == it_2.data;
 		}
+		
+		//  Эти операции не допускаются между прямыми и обратными итераторами
+		const iterator & operator=(const reverse_iterator& it) = delete;
+		bool operator==(const reverse_iterator& it) = delete;
+		bool operator!=(const reverse_iterator& it) = delete;
+		iterator(const reverse_iterator& it) = delete;
 	};
-
-	iterator begin() const
-	{
-		if(dummy->left == nullptr) return iterator(dummy);
-		return iterator(dummy->right);
-	}
-
-	iterator end() const
-	{
-		return iterator(dummy);
-	}
-
-	Binary_Search_Tree() : root(nullptr)
-	{
-		make_dummy();
-	}
-
-	Binary_Search_Tree(std::initializer_list<T> il)
-	{
-		root = nullptr;
-		make_dummy();
-		for (const auto &x : il)
+	/*
+	class reverse_iterator : public iterator {
+		friend class Binary_Search_Tree;
+	protected:
+		reverse_iterator(Node * node) : iterator(node) {};
+	public:
+		
+		//  Преинкремент - следующий элемент множества
+		reverse_iterator& operator++()
 		{
-			insert(x);
+			iterator::operator--();
+			return *this;
 		}
-	}
-	template <class InputIterator>
-	Binary_Search_Tree(InputIterator first, InputIterator last)
+			
+		//  Предекремент - переход на предыдущий элемент множества
+		reverse_iterator& operator--()
+		{
+			iterator::operator++();
+			return *this;
+		}
+
+		//  Постинкремент
+		reverse_iterator operator++(int) {
+			reverse_iterator it(*this);
+			this->operator++();
+			return it;
+		}
+		//  Постдекремент
+		reverse_iterator operator--(int) {
+			reverse_iterator it(*this);
+			this->operator--();
+			return it;
+		}
+
+		friend bool operator != (const reverse_iterator& it_1, const reverse_iterator& it_2)
+		{
+			return it_1.data != it_2.data;
+		}
+
+		friend bool operator == (const reverse_iterator& it_1, const reverse_iterator& it_2)
+		{
+			return it_1.data == it_2.data;
+		}
+
+	};
+	*/
+	iterator begin() const	noexcept { return iterator(dummy->left);	}
+	iterator end() const noexcept { return iterator(dummy);  }
+
+	reverse_iterator rbegin() const	noexcept { return reverse_iterator(dummy->right); }
+	reverse_iterator rend() const noexcept { return reverse_iterator(dummy); }
+
+
+	Binary_Search_Tree(Compare comparator = Compare(), AllocType alloc = AllocType()) : dummy(make_dummy()), cmp(comparator), Alc(alloc)
+	{		}
+
+	Binary_Search_Tree(std::initializer_list<T> il) : dummy(make_dummy())
 	{
-		make_dummy();
+		for (const auto &x : il)
+			insert(x);
+	}
+
+	AllocType get_allocator() const noexcept { return Alc; }
+
+	inline bool empty() const noexcept { return tree_size == 0; }
+
+	template <class InputIterator>
+	Binary_Search_Tree(InputIterator first, InputIterator last, Compare comparator = Compare(), AllocType alloc = AllocType()) : dummy(make_dummy()), cmp(comparator), Alc(alloc)
+	{
 		std::for_each(first, last, [this](T x){ insert(x);});
 	}
 
-	Binary_Search_Tree(const Binary_Search_Tree & tree)
+	Binary_Search_Tree(const Binary_Search_Tree & tree) : dummy(make_dummy())
 	{
-		//Это я спёр из своего кода, оно работает. По крайней мере, у меня (с) Олег
-		root = nullptr;
-		make_dummy();
-		clone(tree.root, tree.dummy);
+		clone(tree.dummy->parent, tree.dummy);
 	}
 
+
+	private:
+	Node* recur_copy_tree(const Node* &dest_dummy, Node* source, const Node* &source_dummy) 
+	{
+		//  Сначала создаём дочерние поддеревья
+		Node* left_sub_tree;
+		if (source->left != source_dummy)
+			left_sub_tree = recur_copy_tree(dest_dummy, source->left, source_dummy);
+		else
+			left_sub_tree = dest_dummy;
+
+		Node* right_sub_tree;
+		if (source->right != source_dummy)
+			right_sub_tree = recur_copy_tree(dest_dummy, source->right, source_dummy);
+		else
+			right_sub_tree = dest_dummy;
+		
+		//  Теперь создаём собственный узел
+		Node* current = make_node(source->data, nullptr, left_sub_tree, right_sub_tree);
+		//  Устанавливаем родителей
+		if (source->right != source_dummy)
+			current->right->parent = current;
+		if (source->left != source_dummy)
+			current->left->parent = current;
+		//  Ну и всё, можно возвращать
+		return current;
+	}
+
+	public:
 	const Binary_Search_Tree & operator=(const Binary_Search_Tree & tree)
 	{
 		//Тут надо бы очистить уже запиленное дерево, а то мы просто переприсвоили указатели, память потекла
 		if (this == &tree) return *this;
-		for (auto i = tree.begin(); i != tree.end(); ++i)
-		{
-			insert(*i);   ///  Кошмар!!!
-		}
+		clear();
+		//  Вставку удобнее производить с помощью итератора-подсказки, или же явно рекурсией
+		recur_copy_tree(dummy, tree.dummy->parent, tree.dummy);
+		//  Размер задаём
+		tree_size = tree.tree_size;
+		//  Осталось установить min и max
+		dummy->left = iterator(dummy->parent).GetMin();
+		dummy->right = iterator(dummy->parent).GetMax();
+		return *this;
 	}
 
 	//===============================================================================================================
+	//  Это "самодельный" блок для тестирования
+	
 	bool CheckTree() const
 	{
-		return checkNodes(root);
+		return checkNodes(dummy->parent);
 	}
 
-	bool checkNodes(const Tree_Node* current_node) const {
-		if (current_node->parent != nullptr) {
+	bool checkNodes(const Node* current_node) const {
+		if (current_node == dummy) return true;
+		if (current_node->parent != nullptr && current_node->parent != dummy) {
 			assert(current_node->parent->left == current_node || current_node->parent->right == current_node);
 			assert(current_node->parent->left != current_node || !(cmp(current_node->parent->data, current_node->data)));
 			assert(current_node->parent->right != current_node || !cmp(current_node->data, current_node->parent->data));
@@ -313,8 +475,9 @@ public:
 
 		return true;
 	}
-
-	void printNode(const Tree_Node* current, int width = 0) const {
+	
+	//  Рекурсивная печать с отступами - в "нормальном" контейнере такого быть не должно
+	void printNode(const Node* current, int width = 0) const {
 		std::string spaces = "";
 		for (int i = 0; i < width; ++i) spaces += "  ";
 		if (current == nullptr) {
@@ -331,410 +494,317 @@ public:
 	}
 
 	void PrintTree() const {
-		printNode(root);
+		printNode(dummy->parent);
+	}
+	//==============================================================================================================
+	
+	size_type size() const { return tree_size; }
+
+	// Обмен содержимым двух контейнеров
+	swap(Binary_Search_Tree & other) {
+
+		drfgdf
 	}
 
-	size_type size() const { return length; }
-
-
-
-
-	//3.1
-	iterator insert(const T & value)
+	//  Вставка элемента по значению. 
+	std::pair<iterator, bool> insert(const T & value)
 	{
-		if (root == nullptr)
+		iterator prev(dummy->parent);
+		//  Дерево пустое - создаём новый узел, 
+		if (prev.isNil())
 		{
 			//это в общем случае, здесь корень, конечно
-			//parent - most right; right - most left; left - root
-			root = new Tree_Node( value, nullptr, nullptr, nullptr);
-			++length;
-			root->right = dummy;
-			dummy->parent = root;
-			dummy->left = root;
-			dummy->right = root;
-			return iterator(root);
+			//parent - root; right - most right; left - most left
+			//Node * new_node = new Node( value, dummy, dummy, dummy);
+			Node* new_node = make_node(value, dummy, dummy, dummy);
+			++tree_size;
+			dummy->parent = new_node;
+			dummy->left = new_node;
+			dummy->right = new_node;
+			return std::make_pair(iterator(new_node), true);
 		}
 
-		iterator prev(nullptr);
-		iterator current = iterator(root);
-		while (current._data() != nullptr && current._data() != dummy) {
+		//  Дерево не пустое
+		iterator current = iterator(dummy->parent);
+
+		while (current.notNil()) {
 			prev = current;
-			if (cmp(value, *current))
-				current._Toleft();
-			else
-				current._Toright();
+			if (cmp(value, *current)) {
+				current = current.Left();
+				continue;
+			}
+			if (cmp(*current, value)) {
+				current = current.Right();
+				continue;
+			}
+			//  Для set - возврат итератора на элемент, препятствующий вставке
+			return std::make_pair(iterator(current), false);
 		}
-
-		//  Выделяем память под узел
-		auto tmp = new Tree_Node(value, prev._data(), nullptr, nullptr);
-		++length;
+		
+		//  Выделяем память под узел - это нужно делать по аналогии с созданием фиктивной вершины
+		Node* new_node = make_node(value, prev._data(), dummy, dummy);
+		++tree_size;
 
 		if (cmp(value, *prev)) 
 		{
 			//  налево
-			prev._data()->left = tmp;
+			prev._data()->left = new_node;
+			//  Если prev был минимальным элементом дерева
+			if (dummy->left == prev._data()) dummy->left = new_node;
 		}
 		else
 		{
-			// направо
-			prev._data()->right = tmp;
+			// направо		
+			prev._data()->right = new_node;
+			if (dummy->right == prev._data()) dummy->right = new_node;
 		}
+		return std::make_pair(iterator(new_node), true);
+	}	
+
+	iterator find(const value_type& value) const {
+		
+		iterator current = iterator(dummy->parent);
+
+		while (current.notNil()) {
+
+			if (cmp(value, *current)) {
+				current = current.Left();
+				continue;
+			}
+			if (cmp(*current, value)) {
+				current = current.Right();
+				continue;
+			}
+			//  Элемент найден, выход из цикла
+			break;
+		}
+		return current;
+	}
+
+protected:
+	//  Удаление листа дерева. Возвращает количество удалённых элементов
+	size_type delete_leaf(iterator leaf) {
+		#ifdef _DEBUG
+		if (leaf.isNil()) return 0; // Стоит потом убрать, так как уже проверяем, что итератор валидный в erase
+		#endif
+		if (leaf.Parent().notNil()) {
+			if (leaf.Parent().Right() == leaf) 
+				leaf.Parent()._data()->right = dummy;
+			else
+				leaf.Parent()._data()->left = dummy;
+		}
+
+		if (dummy->parent == leaf._data()) {
+			dummy->parent = dummy;
+			dummy->right = dummy;
+			dummy->left = dummy;
+		}
+		else 
+			if (dummy->right == leaf._data()) { 
+				dummy->right = leaf.Parent()._data();
+			}
+			else
+				if (dummy->left == leaf._data()) {
+					dummy->left = leaf.Parent()._data();
+			}		
+		//  удалить узел
+		delete_node(leaf._data());
+		return 1;
+	}
+
+	//  Меняет местами текущий узел и максимальный в левом поддеревею Возвращает тот же итератор, но теперь он без правого поддерева
+	iterator replace_with_max_left(iterator node)
+	{
+		//  node имеет обоих дочерних - левое и правое поддерево, т.е. из особых вершин может быть только корнем
+
+		//  Находим максимальный элемент слева. У него нет правого дочернего, и он не может быть корнем или самым правым
+		iterator left_max = node.Left().GetMax();
+
+		//  Рассмотрим случай, когда левый максимальный является прямым потомком node
+		if (node.Left() == left_max) {
+			left_max.setParent(node.Parent());
+			node.setLeft(left_max.Left());
 			
-		//  Если новый узел - максимальный?
-		if (dummy->parent == prev._data()) {
-			//  Если новый узел - максимальный 
-			dummy->parent = tmp;
-			tmp->right = dummy;
-		}
-		else
-			//  Если новый узел - минимальный
-			if (dummy->left == prev._data())
-				dummy->left = tmp;
+			if (left_max.Left().notNil())
+				left_max.Left().setParent(node);
+			else
+				//  Если left_max был самым левым
+				if (dummy->left == left_max._data())
+					dummy->left = node._data();
+			left_max.setLeft(node);
 
-		return iterator(tmp);
-	}
-	/*
-	void Add_Leaf(Tree_Node<T>* data, iterator<T> it_begin)
-	{
-		if (root == nullptr)
-		{
-			root = data;
-		}
-		else
-		{
-			auto p = it_begin;
-
-			while (true)
-			{
-				if (*p > data->data) // left
-				{
-
-					if (p._left() == nullptr)
-					{
-						data->parent = p._data();
-						p._data()->left = data;
-						++length;
-						break;
-					}
-					else
-					{
-						p._Toleft();
-					}
-				}
-				else //right
-				{
-					if (p._right() == nullptr)
-					{
-						data->parent = p._data();
-						p._data()->right = data;
-						++length;
-						break;
-					}
-					else
-					{
-						p._Toright();
-					}
-				}
-
-			}
-		}
-	}
-
-	//3.2
-	bool Is_Item_In_BTS(T data)
-	{
-		auto p = root;
-		while (p != nullptr && p != end_data)
-		{
-			if (p->data == data)
-			{
-				return true;
-			}
-			else if (p->data > data)
-			{
-				p = p->left;
-
+			//  Устанавливаем родителя для правого поддерева (оно должно быть)
+			node.Right().setParent(left_max);
+			//  И на него тоже
+			left_max.setRight(node.Right());
+			//  Обнуляем правую ссылку у node
+			node._data()->right = dummy;
+			//  Проверяем, был ли родитель у node
+			if (node.Parent().notNil()) {
+				if (node.IsRight())
+					node.Parent().setRight(left_max);
+				else
+					node.Parent().setLeft(left_max);
 			}
 			else
-			{
-				p = p->right;
-			}
+				if (dummy->parent == node._data())
+					dummy->parent = left_max._data();
 
+			node.setParent(left_max);
+			return node;
 		}
-		return false;
-	}
-	*/
-	/*
-	//3.3
-	iterator<T> Find_Min()
-	{
-		return iterator<T>(begin_data);
-	}
+		
+		//  Случай когда они не являются прямыми потомками
+		//  Из проблем - только node может быть корнем
+		
+		//  Обрабатываем родителей
+		left_max.Parent().setRight(node);
 
-	//3.3
-	iterator<T> Find_Max()
-	{
-		return iterator<T>(end_data->right);
-	}
-
-	//3.4
-	iterator<T> Find_Less_Or_Equal(T data)
-	{
-		auto p = iterator<T>(root);
-
-		while (p != nullptr && p != end_data)
-		{
-			if (*p <= data)
-				return p;
-			else --p;
-
-		}
-		return end();
-	}
-
-	//3.4
-	iterator<T> Find_Grater_Or_Equal(T data)
-	{
-		auto p = iterator<T>(root);
-
-		while (p != nullptr && p != end_data)
-		{
-			if (*p >= data)
-				return p;
-			else ++p;
-
-		}
-		return end();
-	}
-
-	iterator<T> Find_Equal(T& data)
-	{
-		auto p = iterator<T>(root);
-
-		while (p != nullptr && p != end_data)
-		{
-			if (*p == data)
-			{
-				return p;
-			}
-			if (*p > data) --p;
-			else ++p;
-
-		}
-		return end();
-	}
-
-	//3.5
-	void Delete_Leaf(T& data)
-	{
-		auto p = Find_Equal(data);
-		if (p != end())
-		{
-			auto p_old = p._data();
-
-			if (p_old == root)
-			{
-				Tree_Node<T>* pp = p._right();
-
-				if (p_old->left == p_old)
-				{
-					root = p_old->left;
-				}
-				else
-				{
-					root = p_old->left;
-				}
-				this->Add_Leaf(pp, p_old->left);
-			}
-			else if (p._left() != end() && p._right() != end() && p._left() != nullptr && p._right() != nullptr)
-			{
-				Tree_Node<T>* pp = p._right();
-
-				if (p_old->parent->left == p_old)
-				{
-					p_old->parent->left = p_old->left;
-					p_old->left->parent = p_old->parent;
-				}
-				else
-				{
-					p_old->parent->right = p_old->left;
-					p_old->left->parent = p_old->parent;
-				}
-				this->Add_Leaf(pp, p_old->left);
-			}
-			else if (p._left() != end() && p._left() != nullptr)
-			{
-				if (p_old->parent->left == p_old)
-				{
-					p_old->parent->left = p_old->left;
-					p_old->left->parent = p_old->parent;
-				}
-				else
-				{
-					p_old->parent->right = p_old->left;
-					p_old->left->parent = p_old->parent;
-				}
-
-				if (p_old->right == end_data)
-				{
-					auto end = p_old->parent;
-					while (end->right != nullptr)
-					{
-						end = end->right;
-					}
-					end_data->right = end;
-					end->right = end_data;
-				}
-			}
-			else if (p._right() != end() && p._right() != nullptr)
-			{
-				if (p_old->parent->left == p_old)
-				{
-					p_old->parent->left = p_old->right;
-					p_old->right->parent = p_old->parent;
-				}
-				else
-				{
-					p_old->parent->right = p_old->right;
-					p_old->right->parent = p_old->parent;
-				}
-
-				if (p_old == begin_data)
-				{
-
-					auto begin = p_old->parent;
-					while (begin->left != nullptr)
-					{
-						begin = begin->left;
-					}
-					begin_data = begin;
-					end_data->left = begin;
-					begin->left = end_data;
-				}
-			}
+		//  Если node - корень
+		if (node.Parent().isNil())
+			dummy->parent = left_max._data();
+		else
+			if (node.IsRight())
+				node.Parent().setRight(left_max);
 			else
-			{
-				if (p_old == begin_data || p_old->right == end_data)
-				{
-					if (p_old->parent->left == p_old)
-					{
-						p_old->parent->left = end_data;
-						begin_data = p_old->parent;
-						end_data->left = p_old->parent;
-					}
-					else
-					{
-						p_old->parent->right = end_data;
-						end_data->right = p_old->parent;
-					}
-				}
-				else
-				{
-					if (p_old->parent->left == p_old)
-					{
-						p_old->parent->left = nullptr;
-					}
-					else
-					{
-						p_old->parent->right = nullptr;
-					}
-				}
-			}
-			delete p_old;
+				node.setLeft(left_max);
+		//  Правое поддерево node
+		node.Right().setParent(left_max);
+		left_max.setRight(node.Right());
+		node._data()->right = dummy;
+
+		iterator tmpLeft = node.Left();
+
+		if (left_max.Left().notNil())
+			left_max.Left().setParent(node);
+		node.setLeft(left_max.Left());
+		
+		tmpLeft.setParent(left_max);
+		left_max.setLeft(tmpLeft);
+
+		iterator tmp = node.Parent();
+		node.setParent(left_max.Parent());
+		left_max.setParent(tmp);
+		return node;
+	} 	
+
+
+public:
+	//  Удаление элемента, заданного итератором. Возвращает количество удалённых элементов (для set - 0/1)
+	size_type erase(iterator elem) {
+		//  Если фиктивный элемент, то ошибка - такого не должно происходить
+		if (elem.isNil()) return 0;
+		
+		//  Если элемент - лист
+		if (elem.Right().isNil() && elem.Left().isNil()) {
+			return delete_leaf(elem);
 		}
+
+		//  Элемент не лист. Случай, когда у него один дочерний - есть только левое поддерево
+		if (elem.Right().isNil()) {
+			if (elem.Parent().isNil()) {  //  Удаляем корень дерева, у которого только левое поддерево
+				dummy->parent = elem.Left()._data();
+				elem.Left()._data()->parent = dummy;				
+				dummy->right = elem.Left().GetMax()._data();
+				delete_node(elem._data());
+				return 1;
+			}
+			else {  //  Удаляем не корень, у которого только левое поддерево
+				//  Меняем дочерний
+				elem.Left()._data()->parent = elem.Parent()._data();
+				
+				//if (elem.Parent().Right() == elem) {
+				if (elem.IsRight()) {				
+					//  Родителя меняем
+					elem.Parent()._data()->right = elem.Left()._data();
+					if (elem._data() == dummy->right) // Если элемент - максимальный, то переприсваиваем
+						dummy->right = elem.Left().GetMax()._data();
+				}
+				else {
+					elem.Parent()._data()->left = elem.Left()._data();
+				}
+
+				delete_node(elem._data());
+				return 1;
+			}
+		}
+
+		//  Элемент не лист. Случай, когда у него один дочерний - есть только правое поддерево
+		if (elem.Left().isNil()) {
+			if (elem.Parent().isNil()) {  //  Удаляем корень дерева, у которого только правое поддерево
+				dummy->parent = elem.Right()._data();
+				elem.Right()._data()->parent = dummy;
+				dummy->left = elem.Right().GetMin()._data();
+				delete_node(elem._data());
+				return 1;
+			}
+			else {  //  Удаляем не корень, у которого только правое поддерево
+				//  Меняем дочерний
+				elem.Right()._data()->parent = elem.Parent()._data();
+				//if (elem.Parent().Right() == elem) {
+				if (elem.IsRight()) {				
+					//  Родителя меняем
+					elem.Parent()._data()->right = elem.Right()._data();
+				}
+				else {
+					elem.Parent()._data()->left = elem.Right()._data();
+					if (elem._data() == dummy->left)
+						dummy->left = elem.Right().GetMin()._data();
+				}
+
+				delete_node(elem._data());
+				return 1;
+			}
+		}
+		//  случай когда есть оба дочерних поддерева		
+		// Вообще можно и в случаях с одним поддеревом использовать swap
+
+		replace_with_max_left(elem);
+
+		return erase(elem);
+	}
+	
+	size_type erase(const value_type& elem) {
+		return erase(find(elem));
 	}
 
-	//3.8
-	void Cout_Tree_Witdh()
-	{
-		auto p = iterator<T>(root);
-		auto _spacer = length;
-		std::queue<iterator<T>> print;
-		print.push(p);
-		while (!print.empty())
-		{
-			for (auto i = 0; i < _spacer; i++)
-			{
-				std::cout << " ";
-			}
-			std::queue<iterator<T>> new_print;
-			while (!print.empty())
-			{
-				auto x = print.front();
-				print.pop();
-				if (x._parent() != nullptr && x._parent()->right == x && x._parent()->left == nullptr)
-				{
-					std::cout << "  ";
-					_spacer += 2;
-				}
-				std::cout << *x;
-				if (x._left() != nullptr)
-				{
-					if (x._left() != end_data)
-					{
-						new_print.push(iterator<T>(x._left()));
-					}
-				}
-				if (x._right() != nullptr)
-				{
-					if (x._right() != end_data)
-					{
-						new_print.push(iterator<T>(x._right()));
-						std::cout << "  ";
-					}
-				}
-				std::
-					cout << " ";
-			}
-			std::cout << std::endl;
-			--_spacer;
-			print = new_print;
-		}
-	}
+	
 
-	//3.9 //Если передавать по ссылкам,все хорошо. Конструктор копий принескольких деревьях ломается.
-	friend bool operator== (Binary_Tree_Search<T> tree_1, Binary_Tree_Search<T> tree_2)
+	//Если передавать по ссылкам,все хорошо. Конструктор копий принескольких деревьях ломается.
+	friend bool operator== (const Binary_Search_Tree<T> &tree_1, const Binary_Search_Tree<T> & tree_2)
 	{
-		for (auto i = tree_1.begin(), ii = tree_2.begin(); (i != tree_1.end()) && (ii != tree_2.end()); ++i, ++ii)
+		auto i = tree_1.begin(), ii = tree_2.begin();
+		for (; (i != tree_1.end()) && (ii != tree_2.end()); ++i, ++ii)
 		{
 			if (*i != *ii)
 				return false;
 		}
-		return true;
+		return i == tree_1.end() && ii == tree_2.end();
 	}
 
-	//3.10
-	iterator<T> Find_Next_For_Iterator(iterator<T> it)
-	{
-		if (it._right() != nullptr)
-		{
-			++it;
-		}
-		else if (it._left() != nullptr)
-		{
-			--it;
-		}
-		else
-		{
-			it._To_parent();
-		}
-		return it;
-	}*/
+	//  Очистка дерева (без удаления фиктивной вершины)
+	void clear() {
+		Free_nodes(dummy->parent);
+		tree_size = 0;
+		dummy->parent = dummy->left = dummy->right = dummy;
+	}
 
+private:
 	//  Рекурсивное удаление узлов дерева, не включая фиктивную вершину
-	void Destroy_Node(Tree_Node* node)
+	void Free_nodes(Node* node)
 	{ 
-		if (node != nullptr && node != dummy)
+		if (node != dummy)
 		{
-			Destroy_Node(node->left);
-			Destroy_Node(node->right);
-			delete node;
+			Free_nodes(node->left);
+			Free_nodes(node->right);
+			delete_node(node);
 		}
 	}
-
+	
+public:
 	~Binary_Search_Tree()
 	{
-		Destroy_Node(root); // рекурсивный деструктор
-		delete_dummy();
+		clear(); // рекурсивный деструктор
+		delete_dummy(dummy);
 	}
 };
