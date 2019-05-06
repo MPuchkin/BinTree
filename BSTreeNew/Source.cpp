@@ -18,9 +18,14 @@ int main() {
 	cout << "First : " << *Tree.begin() << endl;
 	cout << " Last : " << *(--Tree.end()) << endl;
 	Tree.erase(40);
+	cout << "=========================\n";
 	Tree.PrintTree();
 	cout << "First : " << *Tree.begin() << endl;
 	cout << " Last : " << *(--Tree.end()) << endl;
+	Binary_Search_Tree<int>::iterator it = Tree.find(23);
+	Tree.insert(it, 111);
+	Tree.PrintTree();
+	
 	#ifdef _WIN32
 		system("pause");
 	#endif //_WIN32

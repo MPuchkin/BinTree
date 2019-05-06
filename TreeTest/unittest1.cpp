@@ -122,10 +122,10 @@ namespace TreeTest
 			Mycont::reverse_iterator p_rit(v1.rbegin());
 			Mycont::const_reverse_iterator p_crit(v4.rbegin());
 
-			Assert::IsTrue(*p_it == 'a' && *--(p_it = v1.end()) == 'c', L"Декремент end() не корректен?");
+			/*Assert::IsTrue(*p_it == 'a' && *--(p_it = v1.end()) == 'c', L"Декремент end() не корректен?");
 			Assert::IsTrue(*p_cit == 'a' && *--(p_cit = v4.end()) == 'c', L"Декремент для const iterator на end() не корректен?");
-			Assert::IsTrue(*p_rit == 'c' && *--(p_rit = v1.rend()) == 'a', L"Reverse iterator не корректен?");
-			Assert::IsTrue(*p_crit == 'c' && *--(p_crit = v4.rend()) == 'a', L"Const reverse iterator не корректен?");
+			//Assert::IsTrue(*p_rit == 'c' && *--(p_rit = v1.rend()) == 'a', L"Reverse iterator не корректен?");
+			Assert::IsTrue(*p_crit == 'c' && *--(p_crit = v4.rend()) == 'a', L"Const reverse iterator не корректен?");*/
 		}
 
 		TEST_METHOD(SetInsertEraseTests)

@@ -3,9 +3,12 @@
 //  Упрощённое описание шаблона двоичного дерева поиска – некоторые элементы (определения типов, проверки и проч.) пропущены
 //  Может быть использовано для реализации сбалансированных деревьев поиска (RBT, AVL) и структур данных на их основе
 
+//  Внимание! Проект содержит ошибки за авторством Пучкина М.В., однако базовые тесты проходит
+//  можно использовать для различных экспериментов с двоичными деревьями поиска
+
 //  Проект: https://github.com/MPuchkin/BinTree
 
-//  Авторы: Бостан Игорь, Дуюнов Сергей, Иванченко Вячеслав
+//  Авторы: Михаил Савельев, Бостан Игорь, Дуюнов Сергей, Иванченко Вячеслав
 
 #include <iostream>
 #include <cassert>
@@ -292,7 +295,7 @@ public:
 			if (Left().notNil())  //  есть левое поддерево
 			{
 				_data() = Left()._data();
-				while (notNil())
+				while (Right().notNil())
 					_data() = Right()._data();
 				return *this;
 			}
@@ -383,8 +386,8 @@ public:
 	iterator begin() const	noexcept { return iterator(dummy->left);	}
 	iterator end() const noexcept { return iterator(dummy);  }
 
-	reverse_iterator rbegin() const	noexcept { return reverse_iterator(dummy->right); }
-	reverse_iterator rend() const noexcept { return reverse_iterator(dummy); }
+	reverse_iterator rbegin() const	noexcept { return reverse_iterator(iterator(dummy->right)); }
+	reverse_iterator rend() const noexcept { return reverse_iterator(iterator(dummy)); }
 
 
 	Binary_Search_Tree(Compare comparator = Compare(), AllocType alloc = AllocType()) : dummy(make_dummy()), cmp(comparator), Alc(alloc)
@@ -397,6 +400,8 @@ public:
 	}
 
 	AllocType get_allocator() const noexcept { return Alc; }
+	key_compare key_comp() const noexcept { return cmp; }
+	value_compare value_comp() const noexcept { return cmp; }
 
 	inline bool empty() const noexcept { return tree_size == 0; }
 
@@ -407,26 +412,37 @@ public:
 	}
 
 	Binary_Search_Tree(const Binary_Search_Tree & tree) : dummy(make_dummy())
-	{
-		clone(tree.dummy->parent, tree.dummy);
+	{	//  Размер задаём
+		tree_size = tree.tree_size;
+		if (tree.empty()) return;
+
+		dummy->parent = recur_copy_tree(tree.dummy->parent, tree.dummy);
+		dummy->parent->parent = dummy;
+
+
+		//  Осталось установить min и max
+		dummy->left = iterator(dummy->parent).GetMin()._data();
+		dummy->right = iterator(dummy->parent).GetMax()._data();
 	}
 
 
 	private:
-	Node* recur_copy_tree(const Node* &dest_dummy, Node* source, const Node* &source_dummy) 
+
+    //  Рекурсивное копирование дерева
+	Node* recur_copy_tree(Node * source, const Node * source_dummy) 
 	{
 		//  Сначала создаём дочерние поддеревья
 		Node* left_sub_tree;
 		if (source->left != source_dummy)
-			left_sub_tree = recur_copy_tree(dest_dummy, source->left, source_dummy);
+			left_sub_tree = recur_copy_tree(source->left, source_dummy);
 		else
-			left_sub_tree = dest_dummy;
+			left_sub_tree = dummy;
 
 		Node* right_sub_tree;
 		if (source->right != source_dummy)
-			right_sub_tree = recur_copy_tree(dest_dummy, source->right, source_dummy);
+			right_sub_tree = recur_copy_tree(source->right, source_dummy);
 		else
-			right_sub_tree = dest_dummy;
+			right_sub_tree = dummy;
 		
 		//  Теперь создаём собственный узел
 		Node* current = make_node(source->data, nullptr, left_sub_tree, right_sub_tree);
@@ -440,18 +456,13 @@ public:
 	}
 
 	public:
-	const Binary_Search_Tree & operator=(const Binary_Search_Tree & tree)
+	const Binary_Search_Tree & operator=(const Binary_Search_Tree &tree)
 	{
-		//Тут надо бы очистить уже запиленное дерево, а то мы просто переприсвоили указатели, память потекла
 		if (this == &tree) return *this;
-		clear();
-		//  Вставку удобнее производить с помощью итератора-подсказки, или же явно рекурсией
-		recur_copy_tree(dummy, tree.dummy->parent, tree.dummy);
-		//  Размер задаём
-		tree_size = tree.tree_size;
-		//  Осталось установить min и max
-		dummy->left = iterator(dummy->parent).GetMin();
-		dummy->right = iterator(dummy->parent).GetMax();
+		
+		Binary_Search_Tree tmp{tree};
+		swap(tmp);
+		
 		return *this;
 	}
 
@@ -480,30 +491,29 @@ public:
 	void printNode(const Node* current, int width = 0) const {
 		std::string spaces = "";
 		for (int i = 0; i < width; ++i) spaces += "  ";
-		if (current == nullptr) {
-			std::cout << spaces << "NIL\n";
-			return;
-		}
 		if (current == dummy) {
 			std::cout << spaces << "Dummy\n";
 			return;
 		}
-		if (current->right != nullptr) printNode(current->right, width + 3);
+		printNode(current->right, width + 3);
 		std::cout << spaces << current->data << std::endl;
-		if (current->left != nullptr) printNode(current->left, width + 3);
+		printNode(current->left, width + 3);
 	}
 
 	void PrintTree() const {
 		printNode(dummy->parent);
+		std::cout << "********************************************************\n";
 	}
 	//==============================================================================================================
 	
 	size_type size() const { return tree_size; }
 
 	// Обмен содержимым двух контейнеров
-	swap(Binary_Search_Tree & other) {
+	void swap(Binary_Search_Tree & other) noexcept {
+		std::swap(dummy, other.dummy);
 
-		drfgdf
+		//  Обмен размера множеств
+		std::swap(tree_size, other.tree_size);
 	}
 
 	//  Вставка элемента по значению. 
@@ -561,6 +571,73 @@ public:
 		return std::make_pair(iterator(new_node), true);
 	}	
 
+	iterator insert(const_iterator position, const value_type& x) {
+		//  Проверяем, корректно ли задана позиция для вставки: ... prev -> x -> position -> ...
+		//  2 5 6 7 10 11 15,    x = 8
+		//  position = 15
+		iterator prev(position);  //  указывает на элемент, предшествующий x
+		if (position.isNil() || cmp(x, *position)) {
+			--prev;
+			//  пока prev >= x -> идём влево
+			while (prev.notNil() && cmp(x, *prev)) {
+				position = prev--;
+			}
+		}
+		else {
+			while (position.notNil() && !cmp(x, *position)) {
+				prev = position++;
+			}
+		}
+		
+		//  Должно быть так : prev <= x < position
+		
+		//  Если дерево пустое
+		if (position == prev) {
+			++tree_size;
+			Node* new_node = make_node(x, dummy, dummy, dummy);
+			dummy->parent = dummy->left = dummy->right = new_node;
+			return iterator(new_node);
+		}
+
+		//  Если у нас уже есть такой элемент? Возвращаем итератор без вставки
+		if (prev.notNil() && *prev == x) return prev;
+
+		//  Тут точно есть один элемент в дереве, поэтому корень не затронем
+
+		//  Вариант 1. Вставка в начало последовательности (слева от самого левого)
+		if (prev.isNil()) {
+			//  position должен быть первым элементом
+			Node* p_node = position._data();
+			p_node->left = make_node(x, p_node, dummy, dummy);
+			++tree_size;
+			dummy->left = p_node->left;
+			return iterator(dummy->left);
+		}
+
+		//  Вариант 2. Вставка справа от prev, prev - живой элемент
+		//  Вариант 2а. У prev нет правого поддерева
+		if (prev.Right().isNil()) {
+			prev._data()->right = make_node(x, prev._data(), dummy, dummy);
+			++tree_size;
+			if(dummy->right == prev._data()) 
+				dummy->right = prev._data()->right;
+			return iterator(prev._data()->right);
+		}
+
+		//  Вариант 2б. У prev есть правое поддерево
+		//    тогда в этом поддереве самый левый - это position
+		position._data()->left = make_node(x, position._data(), dummy, dummy);
+		++tree_size;
+		return iterator(position._data()->left);
+		//  Всё???
+	}
+
+	//  Не самый лучший вариант.
+	template <class InputIterator>
+	void insert(InputIterator first, InputIterator last) {
+		while (first != last) insert(*first++);
+	}
+
 	iterator find(const value_type& value) const {
 		
 		iterator current = iterator(dummy->parent);
@@ -579,6 +656,67 @@ public:
 			break;
 		}
 		return current;
+	}
+
+	iterator lower_bound(const value_type& key) {
+		iterator current{ dummy->parent }, result{ dummy->parent };
+
+		while (current.notNil()) {
+			if (!cmp(key, *current)) {
+				result = current;
+				current = current.Right();
+			}
+			else
+				current = current.Left();
+		}
+
+		return result;
+	}
+
+	const_iterator lower_bound(const value_type& key) const {
+		return const_iterator(const_cast<Binary_Search_Tree *>(this)->lower_bound(key));
+	}
+
+	iterator upper_bound(const value_type& key) {
+
+		iterator current{ dummy->parent }, result{ dummy->parent };
+		while (current.notNil()) {
+			
+			//  если тек > ключа - запомнить, налево
+			//  byfxt 
+
+			if (cmp(key, *current)) {
+				result = current;
+				current = current.Left();
+			}
+			else 	
+				current = current.Right();
+		}
+
+		return result;
+	}
+
+	const_iterator upper_bound(const value_type& key) const {
+		return const_iterator(const_cast<Binary_Search_Tree*>(this)->upper_bound(key));
+	}
+
+	size_type count(const value_type& key) const {
+		return find(key) != end() ? 1 : 0;
+	}
+
+	std::pair<const_iterator, const_iterator> equal_range(const value_type& key) const {
+		const_iterator current{ dummy->parent }, left{ dummy->parent }, right{ dummy->parent };
+		while (current.notNil()) {
+			if (!cmp(key, *current)) {
+				left = current;
+				current = current.Right();
+			}
+			else {
+				right = current;
+				current = current.Left();
+			}
+		}
+		return std::make_pair(left, right);
 	}
 
 protected:
@@ -691,13 +829,16 @@ protected:
 
 public:
 	//  Удаление элемента, заданного итератором. Возвращает количество удалённых элементов (для set - 0/1)
-	size_type erase(iterator elem) {
+	iterator erase(iterator elem) {
 		//  Если фиктивный элемент, то ошибка - такого не должно происходить
-		if (elem.isNil()) return 0;
+		if (elem.isNil()) return iterator(elem);
 		
 		//  Если элемент - лист
 		if (elem.Right().isNil() && elem.Left().isNil()) {
-			return delete_leaf(elem);
+			iterator rezult(elem);
+			++rezult;
+			delete_leaf(elem);
+			return rezult;
 		}
 
 		//  Элемент не лист. Случай, когда у него один дочерний - есть только левое поддерево
@@ -707,13 +848,14 @@ public:
 				elem.Left()._data()->parent = dummy;				
 				dummy->right = elem.Left().GetMax()._data();
 				delete_node(elem._data());
-				return 1;
+				return iterator(dummy->right);
 			}
 			else {  //  Удаляем не корень, у которого только левое поддерево
+				iterator rezult(elem);
+				++rezult; //  запоминаем для возврата результата
 				//  Меняем дочерний
 				elem.Left()._data()->parent = elem.Parent()._data();
 				
-				//if (elem.Parent().Right() == elem) {
 				if (elem.IsRight()) {				
 					//  Родителя меняем
 					elem.Parent()._data()->right = elem.Left()._data();
@@ -723,9 +865,9 @@ public:
 				else {
 					elem.Parent()._data()->left = elem.Left()._data();
 				}
-
+				--tree_size;
 				delete_node(elem._data());
-				return 1;
+				return rezult;
 			}
 		}
 
@@ -736,10 +878,13 @@ public:
 				elem.Right()._data()->parent = dummy;
 				dummy->left = elem.Right().GetMin()._data();
 				delete_node(elem._data());
-				return 1;
+				--tree_size;
+				return iterator(dummy->left);
 			}
 			else {  //  Удаляем не корень, у которого только правое поддерево
 				//  Меняем дочерний
+				iterator rezult(elem.Right());
+
 				elem.Right()._data()->parent = elem.Parent()._data();
 				//if (elem.Parent().Right() == elem) {
 				if (elem.IsRight()) {				
@@ -751,9 +896,9 @@ public:
 					if (elem._data() == dummy->left)
 						dummy->left = elem.Right().GetMin()._data();
 				}
-
+				--tree_size;
 				delete_node(elem._data());
-				return 1;
+				return rezult;
 			}
 		}
 		//  случай когда есть оба дочерних поддерева		
@@ -765,10 +910,19 @@ public:
 	}
 	
 	size_type erase(const value_type& elem) {
-		return erase(find(elem));
+		iterator it = find(elem);
+		if (it.isNil())
+			return 0;
+		erase(it);
+		return 1;
 	}
-
 	
+	//  Проверить!!!
+	iterator erase(const_iterator first, const_iterator last) {
+		while (first != last)
+			first = erase(first);
+		return last;
+	}
 
 	//Если передавать по ссылкам,все хорошо. Конструктор копий принескольких деревьях ломается.
 	friend bool operator== (const Binary_Search_Tree<T> &tree_1, const Binary_Search_Tree<T> & tree_2)
@@ -808,3 +962,56 @@ public:
 		delete_dummy(dummy);
 	}
 };
+
+template <class Key, class Compare, class Allocator>
+void swap(Binary_Search_Tree<Key, Compare, Allocator>& x, Binary_Search_Tree<Key, Compare, Allocator>& y) noexcept(noexcept(x.swap(y))) {
+	x.swap(y);
+};
+
+
+template <class Key, class Compare, class Allocator>
+bool operator==(const Binary_Search_Tree<Key, Compare, Allocator>& x, const Binary_Search_Tree<Key, Compare, Allocator>& y) {
+	typename Binary_Search_Tree<Key, Compare, Allocator>::const_iterator it1{ x.begin() }, it2{ y.begin() };
+	while (it1 != x.end() && it2 != y.end() && *it1 == *it2) {
+		++it1; ++it2;
+	}
+
+	return it1 == x.end() && it2 == y.end();
+}
+
+template <class Key, class Compare, class Allocator>
+bool operator<(const Binary_Search_Tree<Key, Compare, Allocator>& x, const Binary_Search_Tree<Key, Compare, Allocator>& y) {
+	
+	typename Binary_Search_Tree<Key, Compare, Allocator>::const_iterator it1{ x.begin() }, it2{ y.begin() };
+	while (it1 != x.end() && it2 != y.end() && *it1 == *it2) {
+		++it1; ++it2;
+	}
+
+	if (it1 == x.end())
+		return it2 != y.end();
+	
+	return it2 != y.end() && *it1 < *it2;
+}
+
+template <class Key, class Compare, class Allocator>
+bool operator!=(const Binary_Search_Tree<Key, Compare, Allocator>& x, const Binary_Search_Tree<Key, Compare, Allocator>& y) {
+	return !(x == y);
+}
+
+template <class Key, class Compare, class Allocator>
+bool operator>(const Binary_Search_Tree<Key, Compare, Allocator>& x, const Binary_Search_Tree<Key, Compare, Allocator>& y) {
+	return y < x;
+}
+
+template <class Key, class Compare, class Allocator>
+bool operator>=(const Binary_Search_Tree<Key, Compare, Allocator>& x, const Binary_Search_Tree<Key, Compare, Allocator>& y) {
+	return !(x<y);
+}
+
+template <class Key, class Compare, class Allocator>
+bool operator<=(const Binary_Search_Tree<Key, Compare, Allocator>& x, const Binary_Search_Tree<Key, Compare, Allocator>& y) {
+	return   !(y < x);
+}
+
+
+
