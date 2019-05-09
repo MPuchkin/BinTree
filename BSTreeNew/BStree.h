@@ -367,9 +367,9 @@ public:
 	Binary_Search_Tree(InputIterator first, InputIterator last, Compare comparator = Compare(), AllocType alloc = AllocType()) : dummy(make_dummy()), cmp(comparator), Alc(alloc)
 	{
 		//  Проверка на этапе компиляции - какой вид итераторов нам подали на вход
-		if (std::is_same<iterator_traits<InputIterator>::iterator_category, std::random_access_iterator_tag>::value) {
+		if (std::is_same<typename std::iterator_traits<InputIterator>::iterator_category, typename std::random_access_iterator_tag>::value) {
 			//  Если итератор произвольного доступа, то есть надежда, что диапазон отсортирован
-			//    а даже если и нет - не важно, всё равно попробуем метод деления пополам
+			//    а даже если и нет - не важно, всё равно попробуем метод деления пополам для вставки
 			ordered_insert(first, last, end());
 		}
 		else
@@ -388,7 +388,6 @@ public:
 		dummy->left = iterator(dummy->parent).GetMin()._data();
 		dummy->right = iterator(dummy->parent).GetMax()._data();
 	}
-
 
 	private:
 

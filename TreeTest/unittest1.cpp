@@ -3,6 +3,7 @@
 #include <set>
 #include <functional>
 #include <memory_resource>
+#include <iterator>
 
   //Тестирование заголовка <set>, основанное на книге «The C++ Standard Template Library» P.J. Plauger, Alexander A. Stepanov,
   //    Meng Lee, David R. Musser. Немного модифицировано, и разбито на отдельные тесты. 

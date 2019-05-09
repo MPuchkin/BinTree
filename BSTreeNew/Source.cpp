@@ -39,7 +39,7 @@ int main() {
 	sort(v.begin(), v.end());
 	cout << "\n -------------------------------- \n";
 	copy(v.begin(), v.end(), ostream_iterator<int>(cout, " "));
-	cout << " -------------------------------- \n";
+	cout << "\n -------------------------------- \n";
 	Binary_Search_Tree<int> bb(v.begin(), v.end());
 	bb.PrintTree();
 	cout << " -------------------------------- \n";
