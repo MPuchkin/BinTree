@@ -3,12 +3,13 @@
 //  Упрощённое описание шаблона двоичного дерева поиска – некоторые элементы (определения типов, проверки и проч.) пропущены
 //  Может быть использовано для реализации сбалансированных деревьев поиска (RBT, AVL) и структур данных на их основе
 
-//  Внимание! Проект содержит ошибки за авторством Пучкина М.В., однако базовые тесты проходит
+//  Внимание! Проект является «песочницой» содержит ошибки за авторством Пучкина М.В., однако базовые тесты проходит и
 //  можно использовать для различных экспериментов с двоичными деревьями поиска
 
 //  Проект: https://github.com/MPuchkin/BinTree
 
-//  Авторы: Михаил Савельев, Бостан Игорь, Дуюнов Сергей, Иванченко Вячеслав
+//  Авторы: Михаил Савельев, Олег Арутюнов, Бостан Игорь, Дуюнов Сергей, Иванченко Вячеслав, Казеев Дамир
+//  ИММКН ЮФУ, 2019, ФИИТ, 2 курс, 8-9 группы
 
 #include <iostream>
 #include <cassert>
@@ -72,7 +73,6 @@ class Binary_Search_Tree
 		clone(from->right, other_dummy);
 		clone(from->left, other_dummy);
 	}
-
 public:
 	using key_type = T;
 	using key_compare = Compare;
@@ -82,14 +82,12 @@ public:
 	using size_type = typename size_t;
 	using difference_type = typename size_t;
 	using pointer = typename T *;
-	//using const_pointer = typename _Mybase::const_pointer;
+	using const_pointer = typename const pointer;
 	using reference = value_type & ;
 	using const_reference = const value_type &;
-	//using iterator = typename _Mybase::iterator;   //  Не нужно! Явно определили
+	//using iterator = typename _Mybase::iterator;   //  Не нужно! Явно определили iterator внутри данного класса
 	class iterator;   //  Предварительное объявление класса iterator, т.к. он определён ниже
 	using const_iterator = iterator;
-	//using reverse_iterator = typename _Mybase::reverse_iterator;
-	//using const_reverse_iterator = reverse_iterator;
 	using reverse_iterator = std::reverse_iterator<iterator>;
 	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -165,10 +163,6 @@ private:
 	}
 
 public:
-	//  Предварительное объявление класса обратного итератора, чтобы некоторые операции можно было запретить уже
-	//  при реализации прямого итератора
-	class reverse_iterator;
-	
 	//  Класс итератора для дерева поиска
 	class iterator 
 	{
@@ -247,7 +241,6 @@ public:
 		}
 	public:
 		//  Определяем стандартные типы в соответствии с требованиями стандарта к двунаправленным итераторам
-
 		using iterator_category = std::bidirectional_iterator_tag;
 		using value_type = Binary_Search_Tree::value_type; // crap
 		using difference_type = Binary_Search_Tree::difference_type;
@@ -337,61 +330,15 @@ public:
 		bool operator!=(const reverse_iterator& it) = delete;
 		iterator(const reverse_iterator& it) = delete;
 	};
-	/*
-	class reverse_iterator : public iterator {
-		friend class Binary_Search_Tree;
-	protected:
-		reverse_iterator(Node * node) : iterator(node) {};
-	public:
-		
-		//  Преинкремент - следующий элемент множества
-		reverse_iterator& operator++()
-		{
-			iterator::operator--();
-			return *this;
-		}
-			
-		//  Предекремент - переход на предыдущий элемент множества
-		reverse_iterator& operator--()
-		{
-			iterator::operator++();
-			return *this;
-		}
-
-		//  Постинкремент
-		reverse_iterator operator++(int) {
-			reverse_iterator it(*this);
-			this->operator++();
-			return it;
-		}
-		//  Постдекремент
-		reverse_iterator operator--(int) {
-			reverse_iterator it(*this);
-			this->operator--();
-			return it;
-		}
-
-		friend bool operator != (const reverse_iterator& it_1, const reverse_iterator& it_2)
-		{
-			return it_1.data != it_2.data;
-		}
-
-		friend bool operator == (const reverse_iterator& it_1, const reverse_iterator& it_2)
-		{
-			return it_1.data == it_2.data;
-		}
-
-	};
-	*/
-	iterator begin() const	noexcept { return iterator(dummy->left);	}
+	
+	iterator begin() const noexcept { return iterator(dummy->left);	}
 	iterator end() const noexcept { return iterator(dummy);  }
 
 	reverse_iterator rbegin() const	noexcept { return reverse_iterator(iterator(dummy->right)); }
 	reverse_iterator rend() const noexcept { return reverse_iterator(iterator(dummy)); }
 
-
-	Binary_Search_Tree(Compare comparator = Compare(), AllocType alloc = AllocType()) : dummy(make_dummy()), cmp(comparator), Alc(alloc)
-	{		}
+	Binary_Search_Tree(Compare comparator = Compare(), AllocType alloc = AllocType())
+		: dummy(make_dummy()), cmp(comparator), Alc(alloc) {}
 
 	Binary_Search_Tree(std::initializer_list<T> il) : dummy(make_dummy())
 	{
@@ -405,10 +352,28 @@ public:
 
 	inline bool empty() const noexcept { return tree_size == 0; }
 
+private:
+	template <class RandomIterator>
+	void ordered_insert(RandomIterator first, RandomIterator last, iterator position) {
+		if (first >= last) return;
+		RandomIterator center = first + (last - first)/2 ;
+		iterator new_pos = insert(position, *center);  //  итератор на вставленный элемент
+		ordered_insert(first, center, position);
+		ordered_insert(center + 1, last, ++position);
+	}
+
+public:
 	template <class InputIterator>
 	Binary_Search_Tree(InputIterator first, InputIterator last, Compare comparator = Compare(), AllocType alloc = AllocType()) : dummy(make_dummy()), cmp(comparator), Alc(alloc)
 	{
-		std::for_each(first, last, [this](T x){ insert(x);});
+		//  Проверка на этапе компиляции - какой вид итераторов нам подали на вход
+		if (std::is_same<iterator_traits<InputIterator>::iterator_category, std::random_access_iterator_tag>::value) {
+			//  Если итератор произвольного доступа, то есть надежда, что диапазон отсортирован
+			//    а даже если и нет - не важно, всё равно попробуем метод деления пополам
+			ordered_insert(first, last, end());
+		}
+		else
+			std::for_each(first, last, [this](T x) { insert(x); });
 	}
 
 	Binary_Search_Tree(const Binary_Search_Tree & tree) : dummy(make_dummy())
@@ -418,7 +383,6 @@ public:
 
 		dummy->parent = recur_copy_tree(tree.dummy->parent, tree.dummy);
 		dummy->parent->parent = dummy;
-
 
 		//  Осталось установить min и max
 		dummy->left = iterator(dummy->parent).GetMin()._data();
